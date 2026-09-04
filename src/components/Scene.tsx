@@ -182,6 +182,43 @@ function CookieTension({
  * Owns everything that needs the loaded GLB: the intact cookie, the camera
  * framing solve, and the shard definitions handed to physics once it cracks.
  */
+/**
+ * The fracture faces use the GLB's second material, Cookie_Interior, which
+ * never rendered before the cookie could break. Left alone it reads cold and
+ * chalky beside the crust — measured over the pixels actually visible in the
+ * settled pile, #e9cfa0 lands at [197,181,150], only 24% saturated against the
+ * crust's 51%, which is the sage-grey cast.
+ *
+ * The intent was to tame its environment response the way the wafer's was, but
+ * that is not available per material: `envMapIntensity` provably does nothing
+ * to light arriving from `scene.environment` in three r185 — sweeping it from
+ * 1.0 to 0.0 on this material changed not a single pixel, the same result the
+ * wafer gave in phase 1. The wafer is tamed globally on <Environment
+ * environmentIntensity>, and that control is shared with the approved crust,
+ * so it cannot be moved. The warmth is therefore carried by the albedo alone,
+ * tuned against the crust until the pair sit together: #f5c273 renders to
+ * [204,175,117] at 43% saturation, warmer than the chalk but still lighter and
+ * less saturated than the crust, so it reads as the pale inside of the same
+ * biscuit rather than a different material.
+ *
+ * Flat shading is left exactly as exported — the fracture faces are meant to
+ * read as flat broken planes.
+ */
+const INTERIOR = {
+  color: '#f5c273',
+  roughness: 0.9,
+} as const;
+
+function useInteriorMaterial(source: THREE.Material | null) {
+  return useMemo(() => {
+    if (!source) return null;
+    const m = source.clone() as THREE.MeshStandardMaterial;
+    m.color.set(INTERIOR.color);
+    m.roughness = INTERIOR.roughness;
+    return m;
+  }, [source]);
+}
+
 function CookieStage({
   drag,
   reducedMotion,
@@ -213,6 +250,19 @@ function CookieStage({
   // transforms are exactly where the pieces should start. Each shard is a Group
   // of two primitives: the outer wafer (which shares the intact cookie's
   // material, so it gets the same tuning) and the inner fracture face.
+  // The shards' inner faces carry the GLB's Cookie_Interior material.
+  const interiorSource = useMemo(() => {
+    let found: THREE.Material | null = null;
+    scene.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (found || !mesh.isMesh) return;
+      const own = mesh.material as THREE.Material;
+      if (own && own.name === 'Cookie_Interior') found = own;
+    });
+    return found;
+  }, [scene]);
+  const interior = useInteriorMaterial(interiorSource);
+
   const shards = useMemo<ShardDef[]>(() => {
     const source = intact.material as THREE.Material;
     const out: ShardDef[] = [];
@@ -223,7 +273,9 @@ function CookieStage({
         const mesh = child as THREE.Mesh;
         if (!mesh.isMesh) return;
         const own = mesh.material as THREE.Material;
-        parts.push({ geometry: mesh.geometry, material: own === source ? material : own });
+        const swapped =
+          own === source ? material : own === interiorSource && interior ? interior : own;
+        parts.push({ geometry: mesh.geometry, material: swapped });
       });
       if (parts.length === 0) continue;
       out.push({
@@ -237,7 +289,7 @@ function CookieStage({
       });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
-  }, [scene, intact, material]);
+  }, [scene, intact, material, interiorSource, interior]);
 
   return (
     <>
