@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame } from '@react-three/fiber';
 import {
   ContactShadows,
   Environment,
@@ -87,41 +87,60 @@ const CAMERA_POSITION: [number, number, number] = [
   CAMERA_DISTANCE * Math.cos(ELEVATION) * Math.cos(AZIMUTH),
 ];
 
+/**
+ * Sits inside <Suspense>, so it mounts only once the model and environment have
+ * loaded, and then waits for one actual rendered frame before reporting ready —
+ * fading in on mount alone would reveal a blank canvas a frame early.
+ */
+function RevealOnFirstFrame({ onReady }: { onReady: () => void }) {
+  const fired = useRef(false);
+  useFrame(() => {
+    if (fired.current) return;
+    fired.current = true;
+    onReady();
+  });
+  return null;
+}
+
 export default function Scene() {
   // Safe to read directly: this component only ever mounts on the client.
   const [debug] = useState(() =>
     new URLSearchParams(window.location.search).has('debug'),
   );
+  const [ready, setReady] = useState(false);
 
   return (
-    <Canvas
-      camera={{ position: CAMERA_POSITION, fov: FOV }}
-      gl={{ toneMappingExposure: 0.7 }}
-    >
-      <Suspense fallback={null}>
-        <Environment preset="studio" environmentIntensity={0.4} />
-        <Cookie />
-      </Suspense>
+    <div className={ready ? 'stage__canvas is-ready' : 'stage__canvas'}>
+      <Canvas
+        camera={{ position: CAMERA_POSITION, fov: FOV }}
+        gl={{ toneMappingExposure: 0.7 }}
+      >
+        <Suspense fallback={null}>
+          <Environment preset="studio" environmentIntensity={0.4} />
+          <Cookie />
+          <RevealOnFirstFrame onReady={() => setReady(true)} />
+        </Suspense>
 
-      {/* Soft warm key, cross-lighting the 3/4 camera from the upper left. */}
-      <directionalLight
-        position={[-2.6, 3.8, 2.4]}
-        intensity={2.6}
-        color="#ffc078"
-      />
+        {/* Soft warm key, cross-lighting the 3/4 camera from the upper left. */}
+        <directionalLight
+          position={[-2.6, 3.8, 2.4]}
+          intensity={2.6}
+          color="#ffc078"
+        />
 
-      <ContactShadows
-        position={[0, SHADOW_Y, 0]}
-        scale={4.5}
-        blur={2.8}
-        opacity={0.45}
-        far={1.8}
-        resolution={1024}
-        color="#6f4f31"
-      />
+        <ContactShadows
+          position={[0, SHADOW_Y, 0]}
+          scale={4.5}
+          blur={2.8}
+          opacity={0.45}
+          far={1.8}
+          resolution={1024}
+          color="#6f4f31"
+        />
 
-      {debug && <OrbitControls makeDefault />}
-    </Canvas>
+          {debug && <OrbitControls makeDefault />}
+      </Canvas>
+    </div>
   );
 }
 
