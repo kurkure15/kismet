@@ -1,14 +1,14 @@
 'use client';
 
-import { Suspense, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import {
   ContactShadows,
   Environment,
   OrbitControls,
   useGLTF,
 } from '@react-three/drei';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 
 const MODEL_URL = '/models/cookie-fractured.glb';
 
@@ -69,29 +69,104 @@ function Cookie() {
   const material = useWaferMaterial(intact.material as THREE.Material);
 
   return (
-    <group position={[0, -COOKIE_CENTRE_Y, 0]}>
-      <mesh geometry={intact.geometry} material={material} />
-    </group>
+    <>
+      <CameraFraming geometry={intact.geometry} />
+      <group position={[0, -COOKIE_CENTRE_Y, 0]}>
+        <mesh geometry={intact.geometry} material={material} />
+      </group>
+    </>
   );
 }
 
 const FOV = 30;
 
-/**
- * Distance at which the cookie's silhouette covers 40% of viewport height,
- * solved by projecting the mesh's 3300 vertices rather than its bounding box —
- * the rounded shape sits well inside its AABB, so the box overstates it.
- */
-const CAMERA_DISTANCE = 6.5816;
-
 // Gentle 3/4 view: 28deg around, 18deg up.
 const AZIMUTH = (28 * Math.PI) / 180;
 const ELEVATION = (18 * Math.PI) / 180;
+const VIEW_DIR = new THREE.Vector3(
+  Math.cos(ELEVATION) * Math.sin(AZIMUTH),
+  Math.sin(ELEVATION),
+  Math.cos(ELEVATION) * Math.cos(AZIMUTH),
+);
+
+/**
+ * The cookie is framed to min(40% of viewport height, 70% of viewport width).
+ *
+ * The height term is the approved phase 1 distance, kept as an exact literal so
+ * every non-narrow screen renders bit-for-bit what was signed off — re-solving
+ * it at runtime converges to more decimals and shifts the image sub-pixel. The
+ * width term is solved from projected vertices below, and only ever pushes the
+ * camera further back, so it cannot alter a screen where height already binds.
+ */
+const MAX_WIDTH_FRACTION = 0.7;
+
+/** Distance at which the cookie fills exactly 40% of viewport height. */
+const CAMERA_DISTANCE = 6.5816;
 const CAMERA_POSITION: [number, number, number] = [
-  CAMERA_DISTANCE * Math.cos(ELEVATION) * Math.sin(AZIMUTH),
-  CAMERA_DISTANCE * Math.sin(ELEVATION),
-  CAMERA_DISTANCE * Math.cos(ELEVATION) * Math.cos(AZIMUTH),
+  VIEW_DIR.x * CAMERA_DISTANCE,
+  VIEW_DIR.y * CAMERA_DISTANCE,
+  VIEW_DIR.z * CAMERA_DISTANCE,
 ];
+
+/**
+ * Nearest distance at which the cookie's silhouette still fits inside
+ * MAX_WIDTH_FRACTION of the viewport width, found by projecting every vertex
+ * through a real PerspectiveCamera — the rounded shape sits well inside its
+ * bounding box, so the box would overstate its on-screen size.
+ */
+function solveWidthDistance(
+  geometry: THREE.BufferGeometry,
+  aspect: number,
+): number {
+  const position = geometry.attributes.position;
+  const probe = new THREE.PerspectiveCamera(FOV, aspect, 0.1, 200);
+  const v = new THREE.Vector3();
+
+  const tooWide = (distance: number) => {
+    probe.position.copy(VIEW_DIR).multiplyScalar(distance);
+    probe.lookAt(0, 0, 0);
+    probe.updateMatrixWorld();
+    probe.updateProjectionMatrix();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    for (let i = 0; i < position.count; i++) {
+      v.fromBufferAttribute(position, i);
+      v.y -= COOKIE_CENTRE_Y;
+      v.project(probe);
+      if (v.x < minX) minX = v.x;
+      if (v.x > maxX) maxX = v.x;
+    }
+    return (maxX - minX) / 2 > MAX_WIDTH_FRACTION;
+  };
+
+  let tooClose = 1;
+  let farEnough = 60;
+  for (let i = 0; i < 40; i++) {
+    const mid = (tooClose + farEnough) / 2;
+    if (tooWide(mid)) tooClose = mid;
+    else farEnough = mid;
+  }
+  return (tooClose + farEnough) / 2;
+}
+
+function CameraFraming({ geometry }: { geometry: THREE.BufferGeometry }) {
+  const camera = useThree((state) => state.camera);
+  const width = useThree((state) => state.size.width);
+  const height = useThree((state) => state.size.height);
+
+  useLayoutEffect(() => {
+    if (!width || !height) return;
+    const distance = Math.max(
+      CAMERA_DISTANCE,
+      solveWidthDistance(geometry, width / height),
+    );
+    camera.position.copy(VIEW_DIR).multiplyScalar(distance);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+  }, [camera, geometry, width, height]);
+
+  return null;
+}
 
 /**
  * Sits inside <Suspense>, so it mounts only once the model and environment have
