@@ -2,7 +2,12 @@
 
 import { Suspense, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { ContactShadows, OrbitControls, useGLTF } from '@react-three/drei';
+import {
+  ContactShadows,
+  Environment,
+  OrbitControls,
+  useGLTF,
+} from '@react-three/drei';
 import type * as THREE from 'three';
 
 const MODEL_URL = '/models/cookie-fractured.glb';
@@ -18,6 +23,33 @@ const COOKIE_CENTRE_Y = 0.619;
 const BASE_Y = -COOKIE_CENTRE_Y;
 const SHADOW_Y = BASE_Y - 0.035;
 
+/**
+ * The GLB's exported material needs tuning to read as baked wafer rather than
+ * pale wax. Its base colour and normal maps are good; the third texture wired
+ * into both the occlusion and metallic-roughness slots is not an ORM map at
+ * all — it looks like a curvature bake. Measured over the image: the roughness
+ * (green) channel is effectively constant at 0.51-0.55, so it carries no
+ * detail, and the occlusion (red) channel averages 0.29 with large black
+ * regions, which crushes ambient light into flat grey where it applies.
+ *
+ * So: drive roughness directly and keep the false occlusion as a light touch of
+ * crevice shading only. Note that `envMapIntensity` is deliberately not set —
+ * measured against the running renderer it has no effect on light coming from
+ * `scene.environment`, so the studio HDR is scaled on <Environment> instead.
+ *
+ * The GLB itself is never touched — this clones the loaded material, which also
+ * leaves the shards' shared material untouched for later phases.
+ */
+function useWaferMaterial(source: THREE.Material) {
+  return useMemo(() => {
+    const m = source.clone() as THREE.MeshPhysicalMaterial;
+    m.roughnessMap = null;
+    m.roughness = 0.78;
+    m.aoMapIntensity = 0.3;
+    return m;
+  }, [source]);
+}
+
 function Cookie() {
   const { scene } = useGLTF(MODEL_URL);
 
@@ -28,10 +60,11 @@ function Cookie() {
     () => scene.getObjectByName('Cookie_Intact') as THREE.Mesh,
     [scene],
   );
+  const material = useWaferMaterial(intact.material as THREE.Material);
 
   return (
     <group position={[0, -COOKIE_CENTRE_Y, 0]}>
-      <mesh geometry={intact.geometry} material={intact.material} />
+      <mesh geometry={intact.geometry} material={material} />
     </group>
   );
 }
@@ -61,13 +94,21 @@ export default function Scene() {
   );
 
   return (
-    <Canvas camera={{ position: CAMERA_POSITION, fov: FOV }}>
-      <ambientLight intensity={0.6} />
-      <directionalLight position={[3, 4, 2]} intensity={2.5} />
-
+    <Canvas
+      camera={{ position: CAMERA_POSITION, fov: FOV }}
+      gl={{ toneMappingExposure: 0.7 }}
+    >
       <Suspense fallback={null}>
+        <Environment preset="studio" environmentIntensity={0.4} />
         <Cookie />
       </Suspense>
+
+      {/* Soft warm key, cross-lighting the 3/4 camera from the upper left. */}
+      <directionalLight
+        position={[-2.6, 3.8, 2.4]}
+        intensity={2.6}
+        color="#ffc078"
+      />
 
       <ContactShadows
         position={[0, SHADOW_Y, 0]}
