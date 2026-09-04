@@ -26,6 +26,8 @@ body {
 .stage__canvas {
   width: 100%;
   height: 100%;
+  /* Required by @use-gesture so touch drags aren't stolen by page scrolling. */
+  touch-action: none;
   opacity: 0;
   transition: opacity 200ms ease-out;
 }

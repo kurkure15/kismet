@@ -61,6 +61,21 @@ Two more things worth knowing:
   `scene.environment` in three r185. Scale the environment on the
   `<Environment environmentIntensity>` prop instead.
 
+## Known warnings
+
+Console noise that is expected and not worth chasing. Append to this list, do
+not rewrite it.
+
+- `THREE.Clock: This module has been deprecated. Please use THREE.Timer
+  instead.` — emitted by `@react-three/fiber`'s own dist (`new THREE.Clock()`),
+  not by our code. Goes away when R3F migrates or `three` is pinned below r185.
+- `using deprecated parameters for the initialization function; pass a single
+  object instead` — from `@react-three/rapier` calling Rapier's `init()`. Fires
+  once, when physics is warmed up on first pointer-down.
+- Four `404` entries for `/sounds/crack-0*.mp3`, plus one `kismet: no crack
+  sounds found` warning, on the first interaction. Expected until the audio
+  files are added; the crack is designed to proceed silently without them.
+
 ## Commit format
 
 `phase/step: description` — one commit per step, e.g.
