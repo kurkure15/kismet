@@ -30,6 +30,37 @@ own, so it is required for the build rather than an extra dependency.
   outer surface (`Scene_-_Root`) and a fracture face (`Cookie_Interior`), so
   three.js loads each shard as a `Group` of two meshes.
 
+### Material notes (verified against the render in phase 1.4)
+
+The cookie renders correctly — warm golden, base colour and normal map both
+applied. It is **not** gray or broken, so the GLB needs no repair.
+
+Its material `Scene_-_Root` carries four textures, and one of them is junk.
+Measured directly from the embedded PNGs:
+
+| glTF slot | Image | Verdict |
+| --- | --- | --- |
+| baseColor | `Image_0` | Good — golden wafer, mean `[235,169,104]` |
+| normal | `Image_2` | Good — proper tangent-space map |
+| occlusion **and** metallicRoughness | `Image_3-Image_1` | **Not an ORM map.** Looks like a curvature bake |
+| specularColour | `Image_1` | Harmless, factor is 0.029 |
+
+In that third texture the green (roughness) channel is effectively constant at
+0.51–0.55, so it carries no detail, and the red (occlusion) channel averages
+0.29 with large black regions, which crushes ambient light where it applies.
+`Scene.tsx` therefore clones the loaded material, drops the roughness map,
+drives roughness directly, and keeps the false occlusion at low intensity.
+
+Two more things worth knowing:
+
+- `KHR_materials_ior` is exported as `ior: 1000`, which looks absurd but is
+  actually correct in combination with the 0.029 specular colour — together
+  they land on a normal dielectric F0 of about 0.029. **Do not "fix" the ior**
+  on its own; it would darken the specular to near nothing.
+- `material.envMapIntensity` does **not** scale light coming from
+  `scene.environment` in three r185. Scale the environment on the
+  `<Environment environmentIntensity>` prop instead.
+
 ## Commit format
 
 `phase/step: description` — one commit per step, e.g.
