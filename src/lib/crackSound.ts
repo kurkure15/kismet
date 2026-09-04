@@ -1,24 +1,24 @@
 import { Howl } from 'howler';
 
-const CRACK_DIR = '/sounds/Crack';
+const SOUNDS_DIR = '/sounds';
 
 /**
- * The four recordings in public/sounds/Crack are not one-shots, despite the
- * names. Measured from the waveforms, each holds several separate snaps
- * separated by silence, and only one of the four opens on its transient — the
- * loudest snap in the first file is 1.7 seconds in. Playing them from the start
- * would put the sound anywhere up to 1.7s behind the break.
+ * The four crack takes are not one-shots, despite their original names.
+ * Measured from the waveforms, three of them hold several separate snaps
+ * separated by silence, and only crack-03 opens on its attack — the loudest
+ * snap in crack-01 is 1.7 seconds in, so playing from the start would put the
+ * sound that far behind the break.
  *
  * So each snap is addressed as a Howler sprite instead: [startMs, lengthMs],
  * taken 8ms before the attack and running past the decay. That fixes the sync
  * and, as a side effect, turns four files into ten distinct cracks.
  *
- * Snaps quieter than half the file's peak are left out — they read as a weak
+ * Snaps quieter than half their file's peak are left out — they read as a weak
  * crackle rather than a break. Regenerate these offsets if the files change.
  */
 const RECORDINGS = [
   {
-    file: 'Single_sharp_snap_of_#1-1788514796257.wav',
+    file: 'crack-01.wav',
     // 4 snaps, relative peaks 0.58, 0.54, 1.00, 0.57
     snaps: [
       [342, 185],
@@ -28,7 +28,7 @@ const RECORDINGS = [
     ],
   },
   {
-    file: 'Single_sharp_snap_of_#2-1788514740290.wav',
+    file: 'crack-02.wav',
     // 3 snaps, relative peaks 0.99, 0.66, 1.00
     snaps: [
       [102, 170],
@@ -37,12 +37,12 @@ const RECORDINGS = [
     ],
   },
   {
-    file: 'Single_sharp_snap_of_#3-1788513202009.wav',
-    // 1 snap, relative peak 1.00 — the only recording that opens on its attack
+    file: 'crack-03.wav',
+    // 1 snap, relative peak 1.00 — the only take that opens on its attack
     snaps: [[17, 235]],
   },
   {
-    file: 'Single_sharp_snap_of_#3-1788514762590.wav',
+    file: 'crack-04.wav',
     // 2 snaps, relative peaks 1.00, 0.89
     snaps: [
       [117, 380],
@@ -64,7 +64,7 @@ function warnOnce() {
   if (warned) return;
   warned = true;
   console.warn(
-    `kismet: no crack sounds loaded from ${CRACK_DIR} — cracking silently.`,
+    `kismet: no crack sounds loaded from ${SOUNDS_DIR} — cracking silently.`,
   );
 }
 
@@ -84,10 +84,8 @@ export function preloadCrackSounds() {
       sprite[`snap${i}`] = [start, length];
     });
 
-    // The "#" in these filenames would otherwise be read as the start of a URL
-    // fragment, and every request would 404 on the directory.
     const howl = new Howl({
-      src: [`${CRACK_DIR}/${encodeURIComponent(recording.file)}`],
+      src: [`${SOUNDS_DIR}/${recording.file}`],
       format: ['wav'],
       sprite,
       preload: true,
