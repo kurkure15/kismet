@@ -13,6 +13,12 @@ import type * as THREE from 'three';
 const MODEL_URL = '/models/cookie-fractured.glb';
 
 /**
+ * The exact file <Environment preset="studio"> pulls from raw.githack.com,
+ * vendored so the approved lighting no longer depends on a third-party CDN.
+ */
+const HDRI_URL = '/hdri/studio_small_03_1k.hdr';
+
+/**
  * Cookie_Intact measures 1.654 x 1.238 x 1.594 with its base on y=0, so its
  * centre sits at y=0.619. Lifting the group by -0.619 puts that centre on the
  * world origin, which is where R3F aims the default camera.
@@ -116,7 +122,7 @@ export default function Scene() {
         gl={{ toneMappingExposure: 0.7 }}
       >
         <Suspense fallback={null}>
-          <Environment preset="studio" environmentIntensity={0.4} />
+          <Environment files={HDRI_URL} environmentIntensity={0.4} />
           <Cookie />
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>
