@@ -41,3 +41,65 @@ body {
     transition: none;
   }
 }
+
+/* The fortune slip: a DOM overlay above the canvas, never a 3D object. */
+.fortune {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  /* Only the slip itself is interactive; the rest of the layer is inert. */
+  pointer-events: none;
+  z-index: 2;
+}
+
+.fortune__slip {
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  box-sizing: border-box;
+
+  /* ~5:1, clamped so it stays readable on a phone. */
+  width: min(78vw, 27rem);
+  padding: 1.05rem 1.6rem;
+
+  background: #fffdf6;
+  border: 0.5px solid rgba(61, 56, 51, 0.13);
+  border-radius: 2px;
+
+  /* Two layers: a tight contact shadow and a wide soft one. */
+  box-shadow:
+    0 1px 2px rgba(61, 56, 51, 0.07),
+    0 14px 34px rgba(61, 56, 51, 0.09);
+
+  will-change: transform, opacity;
+}
+
+.fortune__slip:active {
+  cursor: grabbing;
+}
+
+.fortune__text {
+  margin: 0;
+  /* Held at two lines so a short fortune and a long one produce the same slip;
+     otherwise a one-liner reads nearer 7:1 than the intended 5:1. */
+  min-height: 2.9em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-wrap: balance;
+  font-family: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
+  font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+  line-height: 1.45;
+  letter-spacing: 0.015em;
+  color: #3d3833;
+  /* Crisp on retina rather than smeared by subpixel AA over the cream. */
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fortune__slip {
+    will-change: auto;
+  }
+}

@@ -21,7 +21,11 @@ import { useDrag } from '@use-gesture/react';
 import * as THREE from 'three';
 import { Shards, type ShardDef } from '@/components/Shards';
 import { playCrack, preloadCrackSounds } from '@/lib/crackSound';
-import { CRACK, HAPTIC_MS, TAP, TENSION, WOBBLE } from '@/lib/tuning';
+import { playPaperIn, preloadPaperSounds } from '@/lib/paperSound';
+import { FortunePaper } from '@/components/FortunePaper';
+import { useKismet } from '@/lib/appState';
+import { nextFortune } from '@/lib/fortunes';
+import { CRACK, HAPTIC_MS, PAPER_DELAY_MS, TAP, TENSION, WOBBLE } from '@/lib/tuning';
 
 /** Live drag state, shared from the DOM gesture layer into the R3F frame loop. */
 type DragState = {
@@ -415,6 +419,32 @@ function CameraFraming({ geometry }: { geometry: THREE.BufferGeometry }) {
 }
 
 /**
+ * Reports where the settled pile sits on screen, so the paper can rise out of
+ * it rather than appear at the middle of nowhere. Measured from a point just
+ * above the shadow plane — the camera looks at the cookie's centre, so the
+ * origin itself is dead centre and would give no rise at all.
+ */
+const PILE_ANCHOR = new THREE.Vector3(0, SHADOW_Y + 0.18, 0);
+
+function PileAnchor({
+  onMeasure,
+}: {
+  onMeasure: (offset: { x: number; y: number }) => void;
+}) {
+  const camera = useThree((state) => state.camera);
+  const width = useThree((state) => state.size.width);
+  const height = useThree((state) => state.size.height);
+
+  useEffect(() => {
+    if (!width || !height) return;
+    const ndc = PILE_ANCHOR.clone().project(camera);
+    onMeasure({ x: (ndc.x * width) / 2, y: (-ndc.y * height) / 2 });
+  }, [camera, width, height, onMeasure]);
+
+  return null;
+}
+
+/**
  * Sits inside <Suspense>, so it mounts only once the model and environment have
  * loaded, and then waits for one actual rendered frame before reporting ready —
  * fading in on mount alone would reveal a blank canvas a frame early.
@@ -448,9 +478,11 @@ export default function Scene() {
   );
   const [ready, setReady] = useState(false);
   const [armed, setArmed] = useState(false);
-  const [cracked, setCracked] = useState(false);
   const [settled, setSettled] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
+  const kismet = useKismet();
+  const [fortune, setFortune] = useState('');
+  const [riseFrom, setRiseFrom] = useState({ x: 0, y: 0 });
 
   const drag = useRef<DragState>({ active: false, x: 0, y: 0, wobbleAt: null });
   const onCookie = useRef(false);
@@ -474,8 +506,8 @@ export default function Scene() {
     drag.current.x = 0;
     drag.current.y = 0;
     drag.current.wobbleAt = null;
-    setCracked(true);
-  }, []);
+    kismet.send('crack');
+  }, [kismet]);
 
   const handleTap = useCallback(() => {
     if (reducedMotion) {
@@ -494,6 +526,18 @@ export default function Scene() {
     drag.current.wobbleAt = now;
   }, [crack, reducedMotion]);
 
+  // Let the break land before the paper answers it, so the two read as one
+  // chain of cause and effect rather than two separate events.
+  useEffect(() => {
+    if (kismet.state !== 'cracked') return;
+    const timer = window.setTimeout(() => {
+      setFortune(nextFortune());
+      playPaperIn();
+      kismet.send('reveal');
+    }, PAPER_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [kismet]);
+
   const endGesture = useCallback(() => {
     drag.current.active = false;
     drag.current.x = 0;
@@ -504,7 +548,7 @@ export default function Scene() {
 
   const bind = useDrag(
     ({ first, last, tap, movement: [mx, my] }) => {
-      if (hasCracked.current) return;
+      if (hasCracked.current || kismet.pileLocked) return;
 
       if (first) dragging.current = onCookie.current;
 
@@ -516,6 +560,7 @@ export default function Scene() {
       // First contact with the cookie: unlock audio (the only moment iOS
       // allows it) and warm the physics WASM before the crack frame.
       preloadCrackSounds();
+      preloadPaperSounds();
       setArmed(true);
 
       if (tap) {
@@ -562,7 +607,7 @@ export default function Scene() {
           <CookieStage
             drag={drag}
             reducedMotion={reducedMotion}
-            cracked={cracked}
+            cracked={kismet.isBroken}
             armed={armed}
             settled={settled}
             onPointerDownCookie={() => {
@@ -570,6 +615,7 @@ export default function Scene() {
             }}
             onSettled={() => setSettled(true)}
           />
+          <PileAnchor onMeasure={setRiseFrom} />
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>
 
@@ -596,6 +642,15 @@ export default function Scene() {
 
         {debug && <OrbitControls makeDefault />}
       </Canvas>
+
+      {kismet.state === 'reading' && (
+        <FortunePaper
+          fortune={fortune}
+          riseFrom={riseFrom}
+          reducedMotion={reducedMotion}
+          onDismiss={() => kismet.send('dismiss')}
+        />
+      )}
     </div>
   );
 }

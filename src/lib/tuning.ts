@@ -92,5 +92,8 @@ export const SETTLE = {
   timeoutSteps: 120,
 } as const;
 
+/** How long the break is left alone before the paper answers it. */
+export const PAPER_DELAY_MS = 500;
+
 /** Haptic pulse on crack, milliseconds. */
 export const HAPTIC_MS = 15;
