@@ -750,10 +750,16 @@ export default function Scene() {
           color="#ffc078"
         />
 
-        {/* Redrawn every frame while the pieces are in the air; once the pile
-            settles it is remounted to bake a single static shadow. */}
+        {/* Redrawn every frame while the pieces are in the air, then dropped to
+            a single bake once the pile settles.
+
+            Deliberately NOT remounted with a key to switch modes: drei's
+            ContactShadows never disposes its render target or plane, so each
+            unmount strands a geometry and two textures on the GPU — the soak
+            measured exactly +1 and +2 per remount, twice a cookie, climbing
+            forever. `frames` is read inside its frame callback, so changing the
+            prop alone switches modes with the component left mounted. */}
         <ContactShadows
-          key={settled ? 'settled' : 'live'}
           frames={settled ? 1 : Infinity}
           position={[0, SHADOW_Y, 0]}
           scale={4.5}
