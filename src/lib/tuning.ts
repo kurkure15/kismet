@@ -95,5 +95,34 @@ export const SETTLE = {
 /** How long the break is left alone before the paper answers it. */
 export const PAPER_DELAY_MS = 500;
 
+/**
+ * Eating. The pile is 14 shards and the target is a greedy 4-6 taps, so a bite
+ * takes the shard that was hit plus its two nearest neighbours: 14 / 3 lands on
+ * five taps whichever piece is struck first.
+ */
+export const EAT = {
+  /** Shards removed per tap, including the one actually hit. */
+  clusterSize: 3,
+  /** Neighbours further than this are left alone, so a stray piece across the
+   *  pile is never yanked away with an unrelated bite. */
+  clusterRadius: 1.0,
+  /** Shard shrink on being eaten — fast, and sucked away rather than faded. */
+  biteMs: 120,
+  /** How far the shard slides toward the tap as it goes, in world units. */
+  sinkDistance: 0.09,
+  crumbsMin: 8,
+  crumbsMax: 14,
+  crumbLifeMs: 600,
+  crumbSpeed: 1.7,
+  crumbGravity: 9,
+  crumbSize: 0.032,
+  /** Beat between the last shard going and the next cookie arriving. */
+  respawnDelayMs: 400,
+  /** The new cookie pops in from this scale. */
+  popFrom: 0.9,
+  popMs: 260,
+  hapticMs: 10,
+} as const;
+
 /** Haptic pulse on crack, milliseconds. */
 export const HAPTIC_MS = 15;

@@ -8,12 +8,26 @@ import { useCallback, useMemo, useReducer } from 'react';
  *   cracked   broken, pieces in flight or settling, paper not out yet
  *   reading   the fortune is on screen
  *   dismissed paper thrown away, pile still on screen
+ *   eating    shards being tapped away
  *
- * Phase 4 hangs eating off `dismissed`.
+ * `reset` closes the loop back to idle with a fresh cookie.
  */
-export type AppState = 'idle' | 'tension' | 'cracked' | 'reading' | 'dismissed';
+export type AppState =
+  | 'idle'
+  | 'tension'
+  | 'cracked'
+  | 'reading'
+  | 'dismissed'
+  | 'eating';
 
-export type AppEvent = 'grab' | 'release' | 'crack' | 'reveal' | 'dismiss';
+export type AppEvent =
+  | 'grab'
+  | 'release'
+  | 'crack'
+  | 'reveal'
+  | 'dismiss'
+  | 'eat'
+  | 'reset';
 
 /**
  * Anything not listed is ignored, which keeps the callers honest: a second
@@ -25,7 +39,8 @@ const TRANSITIONS: Record<AppState, Partial<Record<AppEvent, AppState>>> = {
   tension: { release: 'idle', crack: 'cracked' },
   cracked: { reveal: 'reading' },
   reading: { dismiss: 'dismissed' },
-  dismissed: {},
+  dismissed: { eat: 'eating' },
+  eating: { reset: 'idle' },
 };
 
 function reduce(state: AppState, event: AppEvent): AppState {
@@ -45,7 +60,13 @@ export function useKismet() {
       state,
       send,
       /** The cookie is broken, whatever has happened to the paper since. */
-      isBroken: state === 'cracked' || state === 'reading' || state === 'dismissed',
+      isBroken:
+        state === 'cracked' ||
+        state === 'reading' ||
+        state === 'dismissed' ||
+        state === 'eating',
+      /** The pile can be tapped away. */
+      edible: state === 'dismissed' || state === 'eating',
       /** The pile should ignore pointer input. */
       pileLocked: state === 'reading',
       is,
