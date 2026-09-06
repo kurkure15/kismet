@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { animate, motion, useMotionValue, useSpring } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { playPaperThrow } from '@/lib/paperSound';
+import { luckyNumbers } from '@/lib/lucky';
 
 /** Enter: a spring with ease-out character, settling in roughly 450ms. */
 export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
@@ -167,6 +168,7 @@ export function FortunePaper({
   const scale = useMotionValue(reducedMotion ? 1 : 0.6);
 
   const slip = useRef<HTMLDivElement>(null);
+  const numbers = useMemo(() => luckyNumbers(fortune), [fortune]);
   const [leaving, setLeaving] = useState(false);
   const dismissed = useRef(false);
 
@@ -269,6 +271,15 @@ export function FortunePaper({
         role="note"
       >
         <p className="fortune__text">{fortune}</p>
+        <p className="fortune__lucky">
+          <span className="fortune__ornament" aria-hidden="true">
+            ❋
+          </span>
+          {numbers.join(' · ')}
+          <span className="fortune__ornament" aria-hidden="true">
+            ❋
+          </span>
+        </p>
       </motion.div>
     </div>
   );

@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // Matches the page background, so the browser chrome blends into the stage.
-  themeColor: "#f4efe7",
+  themeColor: "#231d16",
   width: "device-width",
   initialScale: 1,
 };

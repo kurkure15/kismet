@@ -19,7 +19,14 @@ const SUFFIXES = [
  * The stage furniture: wordmark, first-visit hint, and the eaten counter.
  * Purely presentational — it never touches the cookie or the gestures.
  */
-export function StageChrome({ eaten }: { eaten: number }) {
+export function StageChrome({
+  eaten,
+  floorAt,
+}: {
+  eaten: number;
+  /** Screen offset of the floor from viewport centre, in px. */
+  floorAt: { x: number; y: number };
+}) {
   const [hintGone, setHintGone] = useState(false);
   const [shown, setShown] = useState(eaten);
   const [swapping, setSwapping] = useState(false);
@@ -58,6 +65,16 @@ export function StageChrome({ eaten }: { eaten: number }) {
 
   return (
     <>
+      {/* The room, under the canvas: floor glow, falloff, film stock. */}
+      <div
+        className="stage__pool"
+        aria-hidden="true"
+        style={{
+          top: `calc(50% + ${Math.round(floorAt.y)}px)`,
+          marginLeft: `${Math.round(floorAt.x)}px`,
+        }}
+      />
+      <div className="vignette" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
       <p className="chrome chrome--wordmark">kismet</p>
       <p className={`chrome chrome--hint${hintGone ? ' is-gone' : ''}`}>
@@ -68,7 +85,8 @@ export function StageChrome({ eaten }: { eaten: number }) {
           className={`chrome chrome--counter${swapping ? ' is-swapping' : ''}`}
           aria-live="polite"
         >
-          {shown} {shown === 1 ? 'cookie' : 'cookies'} · {suffix}
+          <span className="chrome__count">{shown}</span>{' '}
+          {shown === 1 ? 'cookie' : 'cookies'} · {suffix}
         </p>
       )}
     </>

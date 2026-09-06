@@ -496,10 +496,16 @@ function CameraFraming({ geometry }: { geometry: THREE.BufferGeometry }) {
  */
 const PILE_ANCHOR = new THREE.Vector3(0, SHADOW_Y + 0.18, 0);
 
+/** The centre of the floor, so the light pool can be laid exactly under it. */
+const FLOOR_ANCHOR = new THREE.Vector3(0, SHADOW_Y, 0);
+
 function PileAnchor({
   onMeasure,
 }: {
-  onMeasure: (offset: { x: number; y: number }) => void;
+  onMeasure: (offsets: {
+    paper: { x: number; y: number };
+    floor: { x: number; y: number };
+  }) => void;
 }) {
   const camera = useThree((state) => state.camera);
   const width = useThree((state) => state.size.width);
@@ -507,8 +513,11 @@ function PileAnchor({
 
   useEffect(() => {
     if (!width || !height) return;
-    const ndc = PILE_ANCHOR.clone().project(camera);
-    onMeasure({ x: (ndc.x * width) / 2, y: (-ndc.y * height) / 2 });
+    const toScreen = (point: THREE.Vector3) => {
+      const ndc = point.clone().project(camera);
+      return { x: (ndc.x * width) / 2, y: (-ndc.y * height) / 2 };
+    };
+    onMeasure({ paper: toScreen(PILE_ANCHOR), floor: toScreen(FLOOR_ANCHOR) });
   }, [camera, width, height, onMeasure]);
 
   return null;
@@ -596,6 +605,7 @@ export default function Scene() {
   const kismet = useKismet();
   const [fortune, setFortune] = useState('');
   const [riseFrom, setRiseFrom] = useState({ x: 0, y: 0 });
+  const [floorAt, setFloorAt] = useState({ x: 0, y: 0 });
   /** Bumped per cookie, so per-cookie components remount clean. */
   const [generation, setGeneration] = useState(0);
   const crumbs = useRef<CrumbBurst | null>(null);
@@ -807,7 +817,18 @@ export default function Scene() {
             onEmptied={respawn}
           />
           <Crumbs handle={crumbs} />
-          <PileAnchor onMeasure={setRiseFrom} />
+          <PileAnchor
+            onMeasure={useCallback(
+              (o: {
+                paper: { x: number; y: number };
+                floor: { x: number; y: number };
+              }) => {
+                setRiseFrom(o.paper);
+                setFloorAt(o.floor);
+              },
+              [],
+            )}
+          />
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>
 
@@ -818,15 +839,6 @@ export default function Scene() {
           color="#ffc078"
         />
 
-        {/* Redrawn every frame while the pile is changing — falling, or being
-            bitten away — then dropped to a single bake once it holds still.
-
-            Deliberately NOT remounted with a key to switch modes: drei's
-            ContactShadows never disposes its render target or plane, so each
-            unmount strands a geometry and two textures on the GPU — the soak
-            measured exactly +1 and +2 per remount, twice a cookie, climbing
-            forever. `frames` is read inside its frame callback, so changing the
-            prop alone switches modes with the component left mounted. */}
         <ContactShadows
           ref={shadowGroup}
           frames={settled && !shadowLive ? 1 : Infinity}
@@ -843,7 +855,7 @@ export default function Scene() {
         {debug && <OrbitControls makeDefault />}
       </Canvas>
 
-      <StageChrome eaten={generation} />
+      <StageChrome eaten={generation} floorAt={floorAt} />
 
       {kismet.state === 'reading' && (
         <FortunePaper
