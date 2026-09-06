@@ -124,5 +124,15 @@ export const EAT = {
   hapticMs: 10,
 } as const;
 
+/** The contact shadow's life cycle around eating and respawning. */
+export const SHADOW = {
+  /** The approved phase 1 opacity; the fade scales this, never replaces it. */
+  opacity: 0.45,
+  /** Fade to nothing when the pile is gone, and back in with a new cookie. */
+  fadeMs: 250,
+  /** How long after a bite the shadow keeps redrawing before it re-bakes. */
+  liveAfterBiteMs: 340,
+} as const;
+
 /** Haptic pulse on crack, milliseconds. */
 export const HAPTIC_MS = 15;

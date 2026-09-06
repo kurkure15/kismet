@@ -24,12 +24,14 @@ import { playCrack, preloadCrackSounds } from '@/lib/crackSound';
 import { playPaperIn, preloadPaperSounds } from '@/lib/paperSound';
 import { playCrunch, playPop, preloadCrunchSounds } from '@/lib/crunchSound';
 import { Crumbs, type CrumbBurst } from '@/components/Crumbs';
+import { StageChrome } from '@/components/StageChrome';
 import { FortunePaper } from '@/components/FortunePaper';
 import { useKismet } from '@/lib/appState';
 import { nextFortune } from '@/lib/fortunes';
 import {
   CRACK,
   EAT,
+  SHADOW,
   HAPTIC_MS,
   PAPER_DELAY_MS,
   TAP,
@@ -513,6 +515,49 @@ function PileAnchor({
 }
 
 /**
+ * Fades the contact shadow in and out by writing straight to its material.
+ *
+ * Deliberately not done by swapping the `opacity` prop: that re-renders the
+ * whole scene every frame of the fade. And deliberately not done by remounting
+ * ContactShadows — drei never disposes its render target, which is the leak
+ * fixed in 4.4.
+ */
+function ShadowFade({
+  target,
+  visible,
+}: {
+  target: React.RefObject<THREE.Group | null>;
+  visible: boolean;
+}) {
+  const level = useRef(1);
+
+  useFrame((_, delta) => {
+    const node = target.current;
+    if (!node) return;
+    const want = visible ? 1 : 0;
+    if (level.current !== want) {
+      const step = (delta * 1000) / SHADOW.fadeMs;
+      level.current =
+        want > level.current
+          ? Math.min(want, level.current + step)
+          : Math.max(want, level.current - step);
+    }
+    // Ease-out, so it leaves quickly and lands softly.
+    const eased = 1 - Math.pow(1 - level.current, 3);
+    node.traverse((child) => {
+      const material = (child as THREE.Mesh).material as
+        | THREE.Material
+        | undefined;
+      if (material && 'opacity' in material) {
+        (material as THREE.MeshBasicMaterial).opacity = SHADOW.opacity * eased;
+      }
+    });
+  });
+
+  return null;
+}
+
+/**
  * Sits inside <Suspense>, so it mounts only once the model and environment have
  * loaded, and then waits for one actual rendered frame before reporting ready —
  * fading in on mount alone would reveal a blank canvas a frame early.
@@ -555,6 +600,12 @@ export default function Scene() {
   const [generation, setGeneration] = useState(0);
   const crumbs = useRef<CrumbBurst | null>(null);
   const firstBiteDone = useRef(false);
+  const shadowGroup = useRef<THREE.Group>(null);
+  /** The pile is gone, so its shadow should be too. */
+  const [pileGone, setPileGone] = useState(false);
+  /** Shadow redraws every frame while the pile is changing shape. */
+  const [shadowLive, setShadowLive] = useState(false);
+  const shadowTimer = useRef(0);
 
   const drag = useRef<DragState>({ active: false, x: 0, y: 0, wobbleAt: null });
   const onCookie = useRef(false);
@@ -610,9 +661,22 @@ export default function Scene() {
     return () => window.clearTimeout(timer);
   }, [kismet]);
 
+  // Each bite changes the pile's outline, so the shadow goes back to redrawing
+  // every frame and re-bakes once the shrinking has finished.
+  const wakeShadow = useCallback(() => {
+    setShadowLive(true);
+    window.clearTimeout(shadowTimer.current);
+    shadowTimer.current = window.setTimeout(
+      () => setShadowLive(false),
+      SHADOW.liveAfterBiteMs,
+    );
+  }, []);
+  useEffect(() => () => window.clearTimeout(shadowTimer.current), []);
+
   const handleBite = useCallback(
     (crumbAt: THREE.Vector3[]) => {
       kismet.send('eat');
+      wakeShadow();
 
       // One crunch and one buzz per tap, not per shard: three shards go at once,
       // and three samples on the same frame reads as a glitch rather than a bite.
@@ -630,7 +694,7 @@ export default function Scene() {
         crumbs.current?.emit(at, count);
       }
     },
-    [kismet, reducedMotion],
+    [kismet, reducedMotion, wakeShadow],
   );
 
   // Last shard gone: a beat, then a fresh cookie and a full reset.
@@ -638,6 +702,9 @@ export default function Scene() {
   useEffect(() => () => window.clearTimeout(respawnTimer.current), []);
 
   const respawn = useCallback(() => {
+    // Shadow starts fading the moment the last shard goes, so it is gone by the
+    // time the beat ends and comes back with the new cookie.
+    setPileGone(true);
     window.clearTimeout(respawnTimer.current);
     respawnTimer.current = window.setTimeout(() => {
       hasCracked.current = false;
@@ -649,6 +716,7 @@ export default function Scene() {
       drag.current.y = 0;
       drag.current.wobbleAt = null;
       setSettled(false);
+      setPileGone(false);
       setFortune('');
       setGeneration((g) => g + 1);
       kismet.send('reset');
@@ -750,8 +818,8 @@ export default function Scene() {
           color="#ffc078"
         />
 
-        {/* Redrawn every frame while the pieces are in the air, then dropped to
-            a single bake once the pile settles.
+        {/* Redrawn every frame while the pile is changing — falling, or being
+            bitten away — then dropped to a single bake once it holds still.
 
             Deliberately NOT remounted with a key to switch modes: drei's
             ContactShadows never disposes its render target or plane, so each
@@ -760,7 +828,8 @@ export default function Scene() {
             forever. `frames` is read inside its frame callback, so changing the
             prop alone switches modes with the component left mounted. */}
         <ContactShadows
-          frames={settled ? 1 : Infinity}
+          ref={shadowGroup}
+          frames={settled && !shadowLive ? 1 : Infinity}
           position={[0, SHADOW_Y, 0]}
           scale={4.5}
           blur={2.8}
@@ -769,9 +838,12 @@ export default function Scene() {
           resolution={1024}
           color="#6f4f31"
         />
+        <ShadowFade target={shadowGroup} visible={!pileGone} />
 
         {debug && <OrbitControls makeDefault />}
       </Canvas>
+
+      <StageChrome eaten={generation} />
 
       {kismet.state === 'reading' && (
         <FortunePaper
