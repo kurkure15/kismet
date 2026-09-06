@@ -22,10 +22,20 @@ import * as THREE from 'three';
 import { Shards, type ShardDef } from '@/components/Shards';
 import { playCrack, preloadCrackSounds } from '@/lib/crackSound';
 import { playPaperIn, preloadPaperSounds } from '@/lib/paperSound';
+import { playCrunch, playPop, preloadCrunchSounds } from '@/lib/crunchSound';
+import { Crumbs, type CrumbBurst } from '@/components/Crumbs';
 import { FortunePaper } from '@/components/FortunePaper';
 import { useKismet } from '@/lib/appState';
 import { nextFortune } from '@/lib/fortunes';
-import { CRACK, HAPTIC_MS, PAPER_DELAY_MS, TAP, TENSION, WOBBLE } from '@/lib/tuning';
+import {
+  CRACK,
+  EAT,
+  HAPTIC_MS,
+  PAPER_DELAY_MS,
+  TAP,
+  TENSION,
+  WOBBLE,
+} from '@/lib/tuning';
 
 /** Live drag state, shared from the DOM gesture layer into the R3F frame loop. */
 type DragState = {
@@ -223,22 +233,68 @@ function useInteriorMaterial(source: THREE.Material | null) {
   }, [source]);
 }
 
+/**
+ * Scales a freshly arrived cookie in. Deliberately inert on the very first
+ * cookie: that render is the approved phase 1 image and must stay pixel-exact.
+ */
+function PopIn({
+  generation,
+  children,
+}: {
+  generation: number;
+  children: React.ReactNode;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const startedAt = useRef(0);
+
+  useEffect(() => {
+    startedAt.current = generation > 0 ? performance.now() : 0;
+    if (group.current && generation > 0) {
+      group.current.scale.setScalar(EAT.popFrom);
+    }
+  }, [generation]);
+
+  useFrame(() => {
+    const node = group.current;
+    if (!node || startedAt.current === 0) return;
+    const t = Math.min(1, (performance.now() - startedAt.current) / EAT.popMs);
+    // Ease-out with a touch of overshoot, so it arrives rather than inflates.
+    const eased = 1 - Math.pow(1 - t, 3);
+    const overshoot = Math.sin(t * Math.PI) * 0.035;
+    node.scale.setScalar(EAT.popFrom + (1 - EAT.popFrom) * eased + overshoot);
+    if (t >= 1) {
+      node.scale.setScalar(1);
+      startedAt.current = 0;
+    }
+  });
+
+  return <group ref={group}>{children}</group>;
+}
+
 function CookieStage({
   drag,
   reducedMotion,
   cracked,
   armed,
   settled,
+  edible,
+  generation,
   onPointerDownCookie,
   onSettled,
+  onBite,
+  onEmptied,
 }: {
   drag: React.RefObject<DragState>;
   reducedMotion: boolean;
   cracked: boolean;
   armed: boolean;
   settled: boolean;
+  edible: boolean;
+  generation: number;
   onPointerDownCookie: () => void;
   onSettled: () => void;
+  onBite: (crumbAt: THREE.Vector3[]) => void;
+  onEmptied: () => void;
 }) {
   const { scene } = useGLTF(MODEL_URL);
 
@@ -301,13 +357,15 @@ function CookieStage({
 
       {!cracked && (
         <CookieTension drag={drag} reducedMotion={reducedMotion}>
-          <group position={[0, -COOKIE_CENTRE_Y, 0]}>
-            <mesh
-              geometry={intact.geometry}
-              material={material}
-              onPointerDown={onPointerDownCookie}
-            />
-          </group>
+          <PopIn generation={generation}>
+            <group position={[0, -COOKIE_CENTRE_Y, 0]}>
+              <mesh
+                geometry={intact.geometry}
+                material={material}
+                onPointerDown={onPointerDownCookie}
+              />
+            </group>
+          </PopIn>
         </CookieTension>
       )}
 
@@ -319,7 +377,17 @@ function CookieStage({
         <Suspense fallback={null}>
           <Physics paused={!cracked || settled} gravity={CRACK.gravity}>
             {cracked && (
-              <Shards shards={shards} floorY={SHADOW_Y} onSettled={onSettled} />
+              <Shards
+                // Remounted per cookie, so no eaten state survives a respawn.
+                key={generation}
+                shards={shards}
+                floorY={SHADOW_Y}
+                eatable={edible}
+                reducedMotion={reducedMotion}
+                onSettled={onSettled}
+                onBite={onBite}
+                onEmptied={onEmptied}
+              />
             )}
           </Physics>
         </Suspense>
@@ -483,6 +551,10 @@ export default function Scene() {
   const kismet = useKismet();
   const [fortune, setFortune] = useState('');
   const [riseFrom, setRiseFrom] = useState({ x: 0, y: 0 });
+  /** Bumped per cookie, so per-cookie components remount clean. */
+  const [generation, setGeneration] = useState(0);
+  const crumbs = useRef<CrumbBurst | null>(null);
+  const firstBiteDone = useRef(false);
 
   const drag = useRef<DragState>({ active: false, x: 0, y: 0, wobbleAt: null });
   const onCookie = useRef(false);
@@ -538,6 +610,52 @@ export default function Scene() {
     return () => window.clearTimeout(timer);
   }, [kismet]);
 
+  const handleBite = useCallback(
+    (crumbAt: THREE.Vector3[]) => {
+      kismet.send('eat');
+
+      // One crunch and one buzz per tap, not per shard: three shards go at once,
+      // and three samples on the same frame reads as a glitch rather than a bite.
+      playCrunch(!firstBiteDone.current);
+      firstBiteDone.current = true;
+      if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        navigator.vibrate(EAT.hapticMs);
+      }
+
+      if (reducedMotion) return;
+      for (const at of crumbAt) {
+        const count =
+          EAT.crumbsMin +
+          Math.floor(Math.random() * (EAT.crumbsMax - EAT.crumbsMin + 1));
+        crumbs.current?.emit(at, count);
+      }
+    },
+    [kismet, reducedMotion],
+  );
+
+  // Last shard gone: a beat, then a fresh cookie and a full reset.
+  const respawnTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(respawnTimer.current), []);
+
+  const respawn = useCallback(() => {
+    window.clearTimeout(respawnTimer.current);
+    respawnTimer.current = window.setTimeout(() => {
+      hasCracked.current = false;
+      firstBiteDone.current = false;
+      taps.current = 0;
+      lastTapAt.current = 0;
+      drag.current.active = false;
+      drag.current.x = 0;
+      drag.current.y = 0;
+      drag.current.wobbleAt = null;
+      setSettled(false);
+      setFortune('');
+      setGeneration((g) => g + 1);
+      kismet.send('reset');
+      playPop();
+    }, EAT.respawnDelayMs);
+  }, [kismet]);
+
   const endGesture = useCallback(() => {
     drag.current.active = false;
     drag.current.x = 0;
@@ -561,6 +679,7 @@ export default function Scene() {
       // allows it) and warm the physics WASM before the crack frame.
       preloadCrackSounds();
       preloadPaperSounds();
+      preloadCrunchSounds();
       setArmed(true);
 
       if (tap) {
@@ -610,11 +729,16 @@ export default function Scene() {
             cracked={kismet.isBroken}
             armed={armed}
             settled={settled}
+            edible={kismet.edible}
+            generation={generation}
             onPointerDownCookie={() => {
               onCookie.current = true;
             }}
             onSettled={() => setSettled(true)}
+            onBite={handleBite}
+            onEmptied={respawn}
           />
+          <Crumbs handle={crumbs} />
           <PileAnchor onMeasure={setRiseFrom} />
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>

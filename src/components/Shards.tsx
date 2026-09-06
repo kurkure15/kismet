@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   CuboidCollider,
   RigidBody,
@@ -8,7 +8,8 @@ import {
   type RapierRigidBody,
 } from '@react-three/rapier';
 import * as THREE from 'three';
-import { CRACK, SETTLE } from '@/lib/tuning';
+import { useFrame } from '@react-three/fiber';
+import { CRACK, EAT, SETTLE } from '@/lib/tuning';
 
 export type ShardPart = {
   geometry: THREE.BufferGeometry;
@@ -32,14 +33,27 @@ function jitter(seed: number, salt: number) {
   return x - Math.floor(x); // 0..1
 }
 
+const sink = new THREE.Vector3();
+const quaternion = new THREE.Quaternion();
+
 export function Shards({
   shards,
   floorY,
+  eatable,
+  reducedMotion,
   onSettled,
+  onBite,
+  onEmptied,
 }: {
   shards: ShardDef[];
   floorY: number;
+  /** Taps only eat once the paper is out of the way. */
+  eatable: boolean;
+  reducedMotion: boolean;
   onSettled: () => void;
+  /** Fires once per tap, not once per shard, with the crumb positions. */
+  onBite: (crumbAt: THREE.Vector3[]) => void;
+  onEmptied: () => void;
 }) {
   const bodies = useRef<(RapierRigidBody | null)[]>([]);
   const steps = useRef(0);
@@ -136,30 +150,146 @@ export function Shards({
     }
   });
 
+  // Authoritative in refs so a burst of taps in a single frame cannot race the
+  // render: `version` exists only to re-render once the sets have changed.
+  const eaten = useRef<Set<number>>(new Set());
+  const biting = useRef<Map<number, { startedAt: number; toward: THREE.Vector3 }>>(
+    new Map(),
+  );
+  const groups = useRef<(THREE.Group | null)[]>([]);
+  // Mirrored into state purely so the render can drop eaten shards; the ref
+  // above stays the authority, because taps must resolve synchronously.
+  const [eatenList, setEatenList] = useState<number[]>([]);
+
+  const bite = useCallback(
+    (hit: number, point: THREE.Vector3) => {
+      if (!eatable) return;
+      if (eaten.current.has(hit) || biting.current.has(hit)) return;
+
+      // Everything still on the plate, with its live physics position.
+      const available: { index: number; position: THREE.Vector3 }[] = [];
+      bodies.current.forEach((body, i) => {
+        if (!body || eaten.current.has(i) || biting.current.has(i)) return;
+        const t = body.translation();
+        available.push({ index: i, position: new THREE.Vector3(t.x, t.y, t.z) });
+      });
+
+      const origin = available.find((s) => s.index === hit)?.position;
+      if (!origin) return;
+
+      // The shard that was hit, plus its nearest neighbours within reach.
+      const cluster = available
+        .filter((s) => s.index === hit || s.position.distanceTo(origin) <= EAT.clusterRadius)
+        .sort(
+          (a, b) =>
+            a.position.distanceTo(origin) - b.position.distanceTo(origin),
+        )
+        .slice(0, EAT.clusterSize);
+
+      const now = performance.now();
+      const crumbAt: THREE.Vector3[] = [];
+      for (const shard of cluster) {
+        biting.current.set(shard.index, {
+          startedAt: now,
+          toward: point.clone(),
+        });
+        crumbAt.push(shard.position.clone());
+      }
+
+      onBite(crumbAt);
+    },
+    [eatable, onBite],
+  );
+
+  // Shrink the shards being eaten, then unmount them.
+  useFrame(() => {
+    if (biting.current.size === 0) return;
+    const now = performance.now();
+    const duration = reducedMotion ? 90 : EAT.biteMs;
+    let finished = false;
+
+    biting.current.forEach((entry, index) => {
+      const group = groups.current[index];
+      const t = Math.min(1, (now - entry.startedAt) / duration);
+
+      if (group) {
+        if (reducedMotion) {
+          // No sucking away, just gone.
+          group.scale.setScalar(1 - t);
+        } else {
+          // Ease-in: hangs for a moment, then whips away.
+          group.scale.setScalar(1 - t * t);
+          const body = bodies.current[index];
+          if (body) {
+            const at = body.translation();
+            const rot = body.rotation();
+            // The sink is a world-space pull toward the tap, so it has to be
+            // rotated into the body's own frame before it can be applied.
+            sink
+              .set(entry.toward.x - at.x, entry.toward.y - at.y, entry.toward.z - at.z)
+              .normalize()
+              .multiplyScalar(EAT.sinkDistance * t)
+              .applyQuaternion(
+                quaternion.set(rot.x, rot.y, rot.z, rot.w).invert(),
+              );
+            group.position.copy(sink);
+          }
+        }
+      }
+
+      if (t >= 1) {
+        biting.current.delete(index);
+        eaten.current.add(index);
+        // Retired, not unmounted. Removing a RigidBody while the world is
+        // stepping frees memory Rapier is still iterating, which throws
+        // "memory access out of bounds" from inside its own step every frame
+        // afterwards. Disabling takes it out of the simulation just as well,
+        // and the bodies are released together at respawn, when the world is
+        // paused.
+        bodies.current[index]?.setEnabled(false);
+        finished = true;
+      }
+    });
+
+    if (finished) {
+      setEatenList([...eaten.current]);
+      if (eaten.current.size >= shards.length) onEmptied();
+    }
+  });
+
   return (
     <>
       {shards.map((shard, i) => (
-        <RigidBody
-          key={shard.name}
-          ref={(body) => {
-            bodies.current[i] = body;
-          }}
-          position={shard.position}
-          colliders="hull"
-          restitution={CRACK.restitution}
-          friction={CRACK.friction}
-          linearDamping={CRACK.linearDamping}
-          angularDamping={CRACK.angularDamping}
-        >
-          {shard.parts.map((part, p) => (
-            <mesh
-              key={p}
-              geometry={part.geometry}
-              material={part.material}
-              castShadow
-            />
-          ))}
-        </RigidBody>
+        (
+          <RigidBody
+            key={shard.name}
+            ref={(body) => {
+              bodies.current[i] = body;
+            }}
+            position={shard.position}
+            colliders="hull"
+            restitution={CRACK.restitution}
+            friction={CRACK.friction}
+            linearDamping={CRACK.linearDamping}
+            angularDamping={CRACK.angularDamping}
+          >
+            <group
+              visible={!eatenList.includes(i)}
+              ref={(group) => {
+                groups.current[i] = group;
+              }}
+              onPointerDown={(event) => {
+                if (!eatable) return;
+                event.stopPropagation();
+                bite(i, event.point);
+              }}
+            >
+              {shard.parts.map((part, p) => (
+                <mesh key={p} geometry={part.geometry} material={part.material} />
+              ))}
+            </group>
+          </RigidBody>
+        )
       ))}
 
       {/* Invisible floor, top face exactly on the contact-shadow plane. */}
