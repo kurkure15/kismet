@@ -18,7 +18,7 @@ const SOUNDS_DIR = '/sounds';
  */
 const RECORDINGS = [
   {
-    file: 'crack-01.wav',
+    file: 'crack-01.mp3',
     // 4 snaps, relative peaks 0.58, 0.54, 1.00, 0.57
     snaps: [
       [342, 185],
@@ -28,7 +28,7 @@ const RECORDINGS = [
     ],
   },
   {
-    file: 'crack-02.wav',
+    file: 'crack-02.mp3',
     // 3 snaps, relative peaks 0.99, 0.66, 1.00
     snaps: [
       [102, 170],
@@ -37,12 +37,12 @@ const RECORDINGS = [
     ],
   },
   {
-    file: 'crack-03.wav',
+    file: 'crack-03.mp3',
     // 1 snap, relative peak 1.00 — the only take that opens on its attack
     snaps: [[17, 235]],
   },
   {
-    file: 'crack-04.wav',
+    file: 'crack-04.mp3',
     // 2 snaps, relative peaks 1.00, 0.89
     snaps: [
       [117, 380],
@@ -86,7 +86,7 @@ export function preloadCrackSounds() {
 
     const howl = new Howl({
       src: [`${SOUNDS_DIR}/${recording.file}`],
-      format: ['wav'],
+      format: ['mp3'],
       sprite,
       preload: true,
       // Buffered rather than streamed, so playback starts on the same frame as

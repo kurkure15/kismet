@@ -9,18 +9,18 @@ import { Howl } from 'howler';
  * one, and it only reads as special if it is not in the rotation.
  */
 const FIRST_BITE = {
-  file: '/sounds/crunch-01.wav',
+  file: '/sounds/crunch-01.mp3',
   sprite: [24, 400] as [number, number],
 };
 
 const BITES = [
-  { file: '/sounds/crunch-02.wav', sprite: [26, 620] as [number, number] },
-  { file: '/sounds/crunch-03.wav', sprite: [15, 620] as [number, number] },
-  { file: '/sounds/crunch-04.wav', sprite: [4, 620] as [number, number] },
-  { file: '/sounds/crunch-05.wav', sprite: [86, 540] as [number, number] },
+  { file: '/sounds/crunch-02.mp3', sprite: [26, 620] as [number, number] },
+  { file: '/sounds/crunch-03.mp3', sprite: [15, 620] as [number, number] },
+  { file: '/sounds/crunch-04.mp3', sprite: [4, 620] as [number, number] },
+  { file: '/sounds/crunch-05.mp3', sprite: [86, 540] as [number, number] },
 ];
 
-const POP = { file: '/sounds/pop.wav', sprite: [0, 700] as [number, number] };
+const POP = { file: '/sounds/pop.mp3', sprite: [0, 700] as [number, number] };
 
 const RATE_MIN = 0.94;
 const RATE_MAX = 1.06;
@@ -40,7 +40,7 @@ function warnOnce() {
 function make(file: string, sprite: [number, number]) {
   return new Howl({
     src: [file],
-    format: ['wav'],
+    format: ['mp3'],
     sprite: { clip: sprite },
     preload: true,
     html5: false,

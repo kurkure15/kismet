@@ -12,9 +12,9 @@ import { Howl } from 'howler';
  *           the third is used: the only one with a real flick to it
  */
 const CLIPS = {
-  in: { file: '/sounds/paper-in.wav', sprite: [447, 620] as [number, number] },
+  in: { file: '/sounds/paper-in.mp3', sprite: [447, 620] as [number, number] },
   throw: {
-    file: '/sounds/paper-throw.wav',
+    file: '/sounds/paper-throw.mp3',
     sprite: [2532, 385] as [number, number],
   },
 };
@@ -36,7 +36,7 @@ export function preloadPaperSounds() {
   (Object.keys(CLIPS) as Key[]).forEach((key) => {
     howls[key] = new Howl({
       src: [CLIPS[key].file],
-      format: ['wav'],
+      format: ['mp3'],
       sprite: { clip: CLIPS[key].sprite },
       preload: true,
       html5: false,
