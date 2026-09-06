@@ -21,9 +21,23 @@ const FOLLOW_SPRING = { stiffness: 700, damping: 42, mass: 0.9 } as const;
  */
 const FLICK_VELOCITY = 0.55;
 
+/**
+ * The other way out: carry the slip far enough in any direction and letting go
+ * dismisses it however gently, because at that point the intent is obvious.
+ * A fraction of the smaller viewport edge — about 158px on a laptop, 86px on a
+ * phone — which is a deliberate swipe, well clear of a nudge that should still
+ * spring back.
+ */
+const SWIPE_DISTANCE_FRACTION = 0.2;
+
+/** Below this the velocity vector is noise, and the drag offset is the truth. */
+const DIRECTION_FROM_VELOCITY_ABOVE = 0.15;
+
 /** Exit duration is distance/speed, held inside these bounds. */
 const EXIT_MIN_MS = 240;
 const EXIT_MAX_MS = 620;
+/** A slow swipe has no meaningful speed to scale by, so it leaves at a set clip. */
+const SWIPE_EXIT_MS = 380;
 
 /** Degrees of spin per px/ms of horizontal flick, capped. */
 const SPIN_PER_VELOCITY = 34;
@@ -53,11 +67,20 @@ export type ThrowPlan = {
 };
 
 /**
- * Whether a release counts as a throw. Kept separate from the animation so the
- * numbers can be checked directly rather than by flicking at a screen.
+ * Whether a release should send the slip away. Two ways to qualify, both
+ * direction-agnostic: flick it hard, or simply carry it far. Kept separate from
+ * the animation so the numbers can be checked directly rather than by swiping
+ * at a screen.
  */
-export function isThrow(vx: number, vy: number) {
-  return Math.hypot(vx, vy) >= FLICK_VELOCITY;
+export function isThrow(
+  vx: number,
+  vy: number,
+  mx = 0,
+  my = 0,
+  viewportMin = Infinity,
+) {
+  if (Math.hypot(vx, vy) >= FLICK_VELOCITY) return true;
+  return Math.hypot(mx, my) >= SWIPE_DISTANCE_FRACTION * viewportMin;
 }
 
 /** Half the slip's diagonal, so "off screen" means fully gone, not clipped. */
@@ -80,8 +103,21 @@ export function planThrow(release: Release): ThrowPlan {
   const { mx, my, vx, vy, dx, dy, viewportWidth, viewportHeight } = release;
   const speed = Math.hypot(vx, vy);
 
-  let nx = speed > 0 ? vx / speed : dx;
-  let ny = speed > 0 ? vy / speed : dy;
+  // A hard flick means the velocity vector; a slow swipe means wherever the
+  // slip was actually carried. use-gesture's quantised dx/dy is the last resort.
+  const offset = Math.hypot(mx, my);
+  let nx: number;
+  let ny: number;
+  if (speed > DIRECTION_FROM_VELOCITY_ABOVE) {
+    nx = vx / speed;
+    ny = vy / speed;
+  } else if (offset > 0) {
+    nx = mx / offset;
+    ny = my / offset;
+  } else {
+    nx = dx;
+    ny = dy;
+  }
   if (nx === 0 && ny === 0) ny = -1; // straight up, rather than nowhere
   const norm = Math.hypot(nx, ny) || 1;
   nx /= norm;
@@ -93,10 +129,10 @@ export function planThrow(release: Release): ThrowPlan {
   const toY = ny !== 0 ? (Math.sign(ny) * edgeY - my) / ny : Infinity;
   const distance = Math.max(1, Math.min(toX, toY));
 
-  const duration = Math.min(
-    EXIT_MAX_MS,
-    Math.max(EXIT_MIN_MS, speed > 0 ? distance / speed : EXIT_MAX_MS),
-  );
+  const duration =
+    speed > DIRECTION_FROM_VELOCITY_ABOVE
+      ? Math.min(EXIT_MAX_MS, Math.max(EXIT_MIN_MS, distance / speed))
+      : SWIPE_EXIT_MS;
   const spin = Math.max(
     -MAX_SPIN,
     Math.min(MAX_SPIN, Math.abs(vx) * SPIN_PER_VELOCITY * (nx >= 0 ? 1 : -1)),
@@ -186,7 +222,8 @@ export function FortunePaper({
 
       if (!last) return;
 
-      if (!isThrow(vx, vy)) {
+      const viewportMin = Math.min(window.innerWidth, window.innerHeight);
+      if (!isThrow(vx, vy, mx, my, viewportMin)) {
         // Not a throw. Settle back to the middle.
         animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
         animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
