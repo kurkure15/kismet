@@ -28,6 +28,17 @@ function f(modifier: string, on: boolean) {
  */
 export function StageChrome({ plate }: { plate: Plate }) {
   const [quiet, setQuiet] = useState(false);
+  const [hintGone, setHintGone] = useState(false);
+
+  // The whisper under the cookie answers the only question a first visit
+  // has, and once the answer is obvious it should never return. Memory only,
+  // so a reload starts fresh.
+  useEffect(() => {
+    if (hintGone) return;
+    const dismiss = () => setHintGone(true);
+    window.addEventListener('pointerdown', dismiss, { once: true });
+    return () => window.removeEventListener('pointerdown', dismiss);
+  }, [hintGone]);
 
   // Poster at rest, toy in motion. Any hand on the screen — on the cookie, on
   // the pile, on the slip — drops the whole sheet back to a watermark, and it
@@ -47,8 +58,8 @@ export function StageChrome({ plate }: { plate: Plate }) {
     };
   }, []);
 
-  // Everything on the sheet belongs to the idle plate now. The moment the
-  // cookie breaks the page clears itself and the toy has it to itself.
+  // Everything on the sheet belongs to the idle plate. The moment the cookie
+  // breaks the page clears itself and the toy has it to itself.
   const idle = plate === 'idle';
 
   return (
@@ -56,16 +67,12 @@ export function StageChrome({ plate }: { plate: Plate }) {
       <div className="grain" aria-hidden="true" />
 
       <div className={`plate${quiet ? ' is-quiet' : ''}`}>
-        <p className={f('credit', idle)}>
-          ANKUR
-          <br />
-          YADAV
-        </p>
+        <p className={f('hint', idle && !hintGone)}>Drag to break</p>
 
-        {/* The name of the thing, set on its side down the right margin —
-            the only place it is said. */}
-        <p className={f('statement', idle)}>
-          FORTUNE<span className="f__statement-tail"> TELLING</span>
+        {/* The bottom line: the name in the hand, the credit in small print. */}
+        <p className={f('name', idle)}>Fortune Teller</p>
+        <p className={f('credit', idle)}>
+          Made by <u>Ankur</u>
         </p>
       </div>
     </>

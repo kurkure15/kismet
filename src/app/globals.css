@@ -5,15 +5,20 @@
  * canvas over it.
  */
 :root {
-  --paper: #f5f1e3;
-  --ink: #26231d;
-  --soft: #8b8574;
+  --paper: #ffffff;
+  --ink: #000000;
+  /* The small print, and the whisper under the cookie: black at half and at
+     a third, straight off the plate. */
+  --soft: rgba(0, 0, 0, 0.5);
+  --faint: rgba(0, 0, 0, 0.3);
 
-  /* The plate margin. Every piece of furniture is hung off this. */
-  --edge: clamp(18px, 4.6vw, 62px);
+  /* The plate margin: 80px on the 1728-wide frame the design was drawn on,
+     which is 4.63vw, held there and scaled down for smaller screens. */
+  --edge: clamp(18px, 4.63vw, 80px);
 
+  --hand: var(--font-hand), "Bradley Hand", "Segoe Script", cursive;
+  --grotesk: var(--font-grotesk), "Helvetica Neue", Arial, sans-serif;
   --serif: var(--font-serif), Georgia, "Iowan Old Style", serif;
-  --sans: var(--font-jost), "Helvetica Neue", Arial, sans-serif;
 }
 
 * {
@@ -22,7 +27,9 @@
   margin: 0;
 
   /* Print, not typography-with-opinions: no fi/fl knitting anywhere, and no
-     discretionary flourishes creeping into the wordmark or the fortune. */
+     discretionary flourishes creeping into the fortune. The hand is the one
+     face that needs its ligatures — that is how it joins up — and it opts
+     back in below. */
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "dlig" 0;
 }
@@ -180,44 +187,65 @@ body {
 
 /* --- the sheet at rest ---------------------------------------------------- */
 
-/* Both of these belong to the idle plate. Once the cookie breaks the sheet
-   clears itself and the toy has the page to itself. */
+/*
+ * All of it belongs to the idle plate. Once the cookie breaks the sheet
+ * clears itself and the toy has the page to itself.
+ *
+ * Positions are the Figma plate's: the name and the credit sit on one line
+ * along the bottom, the margin in from each side and 75px up; the whisper
+ * sits 295px below centre, under the cookie.
+ */
+/* One line box each, so the two sit on a shared line — the hand has a tall
+   natural line box that would otherwise float the name above the credit. */
+.f--name,
 .f--credit {
-  bottom: var(--edge);
+  bottom: 75px;
+  line-height: 1;
+}
+
+.f--name {
   left: var(--edge);
-  font-family: var(--sans);
-  font-weight: 700;
-  font-size: clamp(10px, 0.78vw, 12px);
-  letter-spacing: 0.2em;
-  line-height: 1.5;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 18px;
   color: var(--ink);
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
 }
 
-/* The statement, set on its side down the right margin. */
-.f--statement {
-  top: 50%;
-  transform: translateY(-50%);
+.f--credit {
   right: var(--edge);
-  writing-mode: vertical-rl;
-  font-family: var(--sans);
-  font-weight: 700;
-  font-size: clamp(11px, 1.05vw, 15px);
-  letter-spacing: 0.3em;
-  color: var(--ink);
+  font-family: var(--grotesk);
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--soft);
 }
 
-/* A phone is not a poster: the credit comes off, the statement loses its tail. */
+.f--credit u {
+  text-decoration: underline;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.12em;
+}
+
+.f--hint {
+  left: 0;
+  right: 0;
+  /* 295px below centre on the plate; held clear of the bottom line on a
+     short screen. */
+  top: min(calc(50% + 295px), calc(100% - 120px));
+  text-align: center;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 8px;
+  color: var(--faint);
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
+}
+
 @media (max-width: 640px) {
+  .f--name,
   .f--credit {
-    display: none;
-  }
-
-  .f__statement-tail {
-    display: none;
-  }
-
-  .f--statement {
-    font-size: 10px;
+    bottom: calc(var(--edge) + 12px);
   }
 }
 

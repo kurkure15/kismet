@@ -1,30 +1,35 @@
 import type { Metadata, Viewport } from "next";
-import { EB_Garamond, Jost } from "next/font/google";
+import { EB_Garamond, Playwrite_BE_WAL, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 
 /**
- * Exactly two voices, and no third one anywhere on the page.
+ * Three voices, each with one job, per the Figma plate.
  *
- * EB Garamond carries the one thing that is meant to be read — the fortune,
- * printed onto the paper. Jost carries everything that is meant to be seen:
- * the name on its side, the credit.
+ * Playwrite BE WAL is the hand — the name in the corner and the "Drag to
+ * break" whisper under the cookie. Schibsted Grotesk is the small print, the
+ * credit. EB Garamond is the one thing meant to be read, the fortune, printed
+ * onto the paper.
  *
- * Both come through next/font, which downloads the files at build time and
- * serves them from our own origin, so the running page makes no request to
- * Google. The Garamond is drawn onto a canvas texture rather than set in the
- * DOM, but it is the same self-hosted face either way.
+ * All three come through next/font, which downloads the files at build time
+ * and serves them from our own origin, so the running page makes no request
+ * to Google. Playwrite has no language subsets to pick, so it takes none.
  */
+const hand = Playwrite_BE_WAL({
+  variable: "--font-hand",
+  display: "swap",
+});
+
+const grotesk = Schibsted_Grotesk({
+  subsets: ["latin"],
+  weight: ["500"],
+  variable: "--font-grotesk",
+  display: "swap",
+});
+
 const serif = EB_Garamond({
   subsets: ["latin"],
   weight: ["400", "500"],
   variable: "--font-serif",
-  display: "swap",
-});
-
-const jost = Jost({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-jost",
   display: "swap",
 });
 
@@ -54,15 +59,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches the paper, so the browser chrome reads as part of the sheet.
-  themeColor: "#f5f1e3",
+  // Matches the page, so the browser chrome reads as part of it.
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${serif.variable} ${jost.variable}`}>
+    <html lang="en" className={`${hand.variable} ${grotesk.variable} ${serif.variable}`}>
       <body>{children}</body>
     </html>
   );
