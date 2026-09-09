@@ -98,16 +98,23 @@ body {
  * All printed furniture lives in one fixed layer above the canvas. It is inert
  * by construction: `pointer-events: none` on the layer and on every descendant,
  * so a drag started anywhere over it still reaches the cookie underneath.
+ *
+ * The layer's own opacity is the choreography — poster at rest, toy in motion.
  */
 .plate {
   position: fixed;
   inset: 0;
   z-index: 5;
   pointer-events: none;
+  transition: opacity 200ms ease-out;
 }
 
 .plate * {
   pointer-events: none;
+}
+
+.plate.is-quiet {
+  opacity: 0.15;
 }
 
 /*
@@ -134,6 +141,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .plate,
   .f,
   .f.is-on {
     transition-duration: 1ms;

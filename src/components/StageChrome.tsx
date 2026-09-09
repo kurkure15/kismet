@@ -31,6 +31,7 @@ export function StageChrome({
   eaten: number;
 }) {
   const [hintGone, setHintGone] = useState(false);
+  const [quiet, setQuiet] = useState(false);
 
   // The hint answers the only question a first visit has, and once the answer
   // is obvious it should never return. Memory only, so a reload starts fresh.
@@ -40,6 +41,24 @@ export function StageChrome({
     window.addEventListener('pointerdown', dismiss, { once: true });
     return () => window.removeEventListener('pointerdown', dismiss);
   }, [hintGone]);
+
+  // Poster at rest, toy in motion. Any hand on the screen — on the cookie, on
+  // the pile, on the slip — drops the whole sheet back to a watermark, and it
+  // prints again the moment the hand comes off. Listened for on the window
+  // rather than wired through the gesture layers, so there is exactly one
+  // rule and no gesture can forget to obey it.
+  useEffect(() => {
+    const down = () => setQuiet(true);
+    const up = () => setQuiet(false);
+    window.addEventListener('pointerdown', down);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, []);
 
   const idle = plate === 'idle';
   const broken = plate === 'cracked' || plate === 'reading';
@@ -53,7 +72,7 @@ export function StageChrome({
     <>
       <div className="grain" aria-hidden="true" />
 
-      <div className="plate">
+      <div className={`plate${quiet ? ' is-quiet' : ''}`}>
         {/* --- plate 1 · idle --- */}
         <p className={f('label', idle || after)}>
           Fortune
