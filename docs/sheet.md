@@ -5,7 +5,10 @@ land in it; you tick the ones you like and they go into the cookies; cookies
 eaten are logged in it by country. The site talks to it through a Google Apps
 Script bound to the sheet. No database, no packages.
 
-The sheet: https://docs.google.com/spreadsheets/d/1TC02SKPBcQdNGAJ3n-g2S6cF3d6czrMFG3c9DKIHViI
+The sheet itself lives in your Drive. Its link is deliberately not written
+here: this repo is public, and the sheet holds unreviewed submissions. Keep
+the sheet's sharing set to restricted — the script runs as you, so nobody
+else needs access to it, ever.
 
 ## Set up, once
 
