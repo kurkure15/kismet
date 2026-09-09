@@ -361,17 +361,34 @@ body {
   color: var(--soft);
 }
 
-/* --- the phone plate ----------------------------------------------------- */
+/* --- narrow plates ------------------------------------------------------- */
 
 /*
- * A phone is not a poster. The fine print, the credit, the boxed wordmark and
- * the reading meta all come off the sheet; the statement loses its tail.
+ * The reading plate is the widest composition on the sheet: boxed wordmark and
+ * meta down the left margin, slip off centre, chapter mark down the right.
+ * Measured, the three stop clearing each other a little under 900px — the meta
+ * reaches the slip's left edge and the chapter reaches its right. So below
+ * that the side furniture comes off, the chapter moves up into the corner, and
+ * the slip re-centres (FortunePaper reads the same breakpoint).
+ */
+@media (max-width: 899px) {
+  .f--vertbox,
+  .f--meta {
+    display: none;
+  }
+
+  .f--chapter {
+    top: 13%;
+  }
+}
+
+/*
+ * A phone is not a poster. The fine print and the credit come off the sheet
+ * too, and the statement loses its tail.
  */
 @media (max-width: 640px) {
   .f--fineprint,
-  .f--credit,
-  .f--vertbox,
-  .f--meta {
+  .f--credit {
     display: none;
   }
 
@@ -393,10 +410,6 @@ body {
     bottom: 4.5%;
     width: 13vw;
     height: 12px;
-  }
-
-  .f--chapter {
-    top: 13%;
   }
 
   .f--bar {

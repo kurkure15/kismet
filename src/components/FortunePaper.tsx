@@ -98,8 +98,8 @@ const PAPER_CLEARANCE = 240;
  */
 const PLATE_OFFSET_FRACTION = 0.06;
 
-/** Matches the phone breakpoint in globals.css. */
-const DESKTOP_QUERY = '(min-width: 641px)';
+/** Matches the reading plate's breakpoint in globals.css. */
+const DESKTOP_QUERY = '(min-width: 900px)';
 
 /**
  * Turns a release into an exit.
