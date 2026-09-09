@@ -474,6 +474,13 @@ body {
   .compose__field {
     font-size: 16px;
   }
+
+  /* "Write a good fortune for someone" is a long line for a phone-width
+     sheet in this hand; the prompt is set small so it fits in one, and the
+     writing itself stays at full size. */
+  .compose__field::placeholder {
+    font-size: 12px;
+  }
 }
 
 @media (max-width: 640px) {
