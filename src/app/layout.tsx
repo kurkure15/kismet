@@ -15,12 +15,14 @@ import "./globals.css";
  */
 const newsreader = Newsreader({
   subsets: ["latin"],
+  weight: ["400"],
   variable: "--font-newsreader",
   display: "swap",
 });
 
 const jost = Jost({
   subsets: ["latin"],
+  weight: ["600", "700", "800"],
   variable: "--font-jost",
   display: "swap",
 });
