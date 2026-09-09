@@ -35,9 +35,11 @@ export function countryOf(request: Request) {
 }
 
 /**
- * Apps Script answers a POST with a redirect to the rendered output, which
- * fetch follows as a GET — that is fine, the script has already run by then
- * and the redirect only carries its reply.
+ * Apps Script answers a POST with a 302 to a page holding the script's
+ * reply. By the time it redirects, the script has already run — the row is
+ * written — and following the redirect only sometimes works (the landing
+ * page refuses a re-POST with a 405). So the redirect itself is taken as
+ * success, and the redirect is not followed.
  */
 async function post(body: Record<string, unknown>) {
   const c = config();
@@ -48,8 +50,9 @@ async function post(body: Record<string, unknown>) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ token: c.token, ...body }),
       cache: 'no-store',
+      redirect: 'manual',
     });
-    return res.ok;
+    return res.ok || (res.status >= 300 && res.status < 400);
   } catch {
     return false;
   }

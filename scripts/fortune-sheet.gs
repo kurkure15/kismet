@@ -1,12 +1,12 @@
 /**
- * kismet — the sheet's side of things.
+ * kismet - the sheet's side of things.
  *
  * Two tabs, which `setup` makes for you:
  *   Inbox   Time | Fortune | Country | Approved      (Approved is a checkbox)
  *   Eats    Time | Country
  *
- * Once:  paste this in (Extensions → Apps Script), change TOKEN, run `setup`
- * from the toolbar and allow it, then Deploy → New deployment → Web app,
+ * Once:  paste this in (Extensions -> Apps Script), change TOKEN, run `setup`
+ * from the toolbar and allow it, then Deploy -> New deployment -> Web app,
  * Execute as Me, Who has access: Anyone. Put the /exec URL in
  * FORTUNE_SHEET_URL and the same TOKEN in FORTUNE_SHEET_TOKEN.
  *
@@ -25,7 +25,12 @@ function setup() {
     inbox.setFrozenRows(1);
     inbox.setColumnWidth(2, 520);
   }
-  inbox.getRange('D2:D2000').insertCheckboxes();
+  // Checkboxes are added per row as fortunes arrive (see doPost). A column
+  // of ready-made ones would count as content, and new rows would land
+  // below them. If an earlier version left a column of them, take it back.
+  var spare = inbox.getRange(2, 4, Math.max(inbox.getMaxRows() - 1, 1), 1);
+  spare.removeCheckboxes();
+  spare.clearContent();
 
   var eats = ss.getSheetByName('Eats') || ss.insertSheet('Eats');
   if (eats.getLastRow() === 0) {
@@ -50,7 +55,9 @@ function doPost(e) {
   if (body.action === 'fortune') {
     var text = String(body.text || '').slice(0, 120);
     if (!text) return reply({ ok: false, reason: 'empty' });
-    ss.getSheetByName('Inbox').appendRow([new Date(), text, String(body.country || ''), false]);
+    var inbox = ss.getSheetByName('Inbox');
+    inbox.appendRow([new Date(), text, String(body.country || ''), false]);
+    inbox.getRange(inbox.getLastRow(), 4).insertCheckboxes();
     return reply({ ok: true });
   }
   if (body.action === 'eat') {
@@ -89,7 +96,7 @@ function doGet(e) {
       var approved = all[i][2];
       var yes =
         approved === true ||
-        /^(yes|y|true|x|ok|✓)$/i.test(String(approved).trim());
+        /^(yes|y|true|x|ok)$/i.test(String(approved).trim());
       var text = String(all[i][0] || '').trim();
       if (yes && text) fortunes.push({ text: text, from: String(all[i][1] || '') });
     }
