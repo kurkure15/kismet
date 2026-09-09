@@ -88,6 +88,20 @@ export function isThrow(
 const PAPER_CLEARANCE = 240;
 
 /**
+ * The reading plate is not symmetrical: the boxed wordmark and the meta block
+ * hold the left margin, so the slip sits centre-right at roughly 56% of the
+ * width rather than dead centre. A fraction of the viewport, applied as a
+ * transform on the slip itself, so nothing about the layer moves.
+ *
+ * Zero on a phone, where the plate drops that furniture and the slip is the
+ * whole composition.
+ */
+const PLATE_OFFSET_FRACTION = 0.06;
+
+/** Matches the phone breakpoint in globals.css. */
+const DESKTOP_QUERY = '(min-width: 641px)';
+
+/**
  * Turns a release into an exit.
  *
  * Direction comes from the velocity vector itself rather than use-gesture's
@@ -167,6 +181,15 @@ export function FortunePaper({
   const opacity = useMotionValue(0);
   const scale = useMotionValue(reducedMotion ? 1 : 0.6);
 
+  // Read once: the slip lives for a few seconds, and re-centring it mid-read
+  // because the window was resized would be a stranger thing to watch than the
+  // offset being a little stale.
+  const [restX] = useState(() =>
+    window.matchMedia(DESKTOP_QUERY).matches
+      ? window.innerWidth * PLATE_OFFSET_FRACTION
+      : 0,
+  );
+
   const slip = useRef<HTMLDivElement>(null);
   const numbers = useMemo(() => luckyNumbers(fortune), [fortune]);
   const [leaving, setLeaving] = useState(false);
@@ -175,6 +198,8 @@ export function FortunePaper({
   // Enter. The slip starts down in the pile and rises to the middle.
   useEffect(() => {
     if (reducedMotion) {
+      dragX.jump(restX);
+      x.jump(restX);
       animate(opacity, 1, { duration: 0.2, ease: 'easeOut' });
       return;
     }
@@ -183,7 +208,7 @@ export function FortunePaper({
     x.jump(riseFrom.x);
     y.jump(riseFrom.y);
     rotate.set(-11);
-    animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
+    animate(dragX, restX, { type: 'spring', ...ENTER_SPRING });
     animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
     animate(scale, 1, { type: 'spring', ...ENTER_SPRING });
     animate(rotate, REST_ROTATION, { type: 'spring', ...ENTER_SPRING });
@@ -215,7 +240,7 @@ export function FortunePaper({
       }
 
       if (down) {
-        dragX.set(mx);
+        dragX.set(restX + mx);
         dragY.set(my);
         // Lean into the direction of travel, a little more the further it goes.
         rotate.set(REST_ROTATION + Math.max(-14, Math.min(14, mx * 0.045)));
@@ -226,8 +251,8 @@ export function FortunePaper({
 
       const viewportMin = Math.min(window.innerWidth, window.innerHeight);
       if (!isThrow(vx, vy, mx, my, viewportMin)) {
-        // Not a throw. Settle back to the middle.
-        animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
+        // Not a throw. Settle back to where it was printed.
+        animate(dragX, restX, { type: 'spring', ...ENTER_SPRING });
         animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
         animate(rotate, REST_ROTATION, { type: 'spring', ...ENTER_SPRING });
         return;
@@ -243,7 +268,7 @@ export function FortunePaper({
       setLeaving(true);
 
       const ease = [0.16, 0.7, 0.35, 1] as const;
-      animate(dragX, targetX, { duration: duration / 1000, ease });
+      animate(dragX, restX + targetX, { duration: duration / 1000, ease });
       animate(dragY, targetY, { duration: duration / 1000, ease });
       animate(rotate, rotate.get() + spin, { duration: duration / 1000, ease });
       // Fade only once it is near the edge, so it reads as leaving, not dissolving.
@@ -271,15 +296,7 @@ export function FortunePaper({
         role="note"
       >
         <p className="fortune__text">{fortune}</p>
-        <p className="fortune__lucky">
-          <span className="fortune__ornament" aria-hidden="true">
-            ❋
-          </span>
-          {numbers.join(' · ')}
-          <span className="fortune__ornament" aria-hidden="true">
-            ❋
-          </span>
-        </p>
+        <p className="fortune__lucky">{numbers.join(' ')}</p>
       </motion.div>
     </div>
   );

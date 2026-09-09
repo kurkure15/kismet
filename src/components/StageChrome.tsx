@@ -3,36 +3,34 @@
 import { useEffect, useState } from 'react';
 
 /**
- * Suffixes for the counter, in the same register as the fortunes. Kept short
- * enough that the line never competes with the cookie.
+ * Which plate the sheet is printed with. Derived from the state machine plus
+ * one extra beat: `eaten` is the pause after the last shard goes and before
+ * the next cookie arrives, which is the only moment the centre of the sheet
+ * is empty enough to carry a 160px numeral.
  */
-const SUFFIXES = [
-  'fate accepted',
-  'no refunds',
-  'destiny, lightly salted',
-  'the universe noticed',
-  'appetite intact',
-  'crumbs forgiven',
-] as const;
+export type Plate = 'idle' | 'cracked' | 'reading' | 'eating' | 'eaten';
+
+/** Marks one piece of furniture on or off the current plate. */
+function f(modifier: string, on: boolean) {
+  return `f f--${modifier}${on ? ' is-on' : ''}`;
+}
 
 /**
- * The stage furniture: wordmark, first-visit hint, and the eaten counter.
- * Purely presentational — it never touches the cookie or the gestures.
+ * The printed page the toy performs inside.
+ *
+ * Everything here is furniture: fixed, inert, and hung off the plate margin.
+ * It never touches the cookie, the pile or the slip — the only thing it reads
+ * from them is which plate to print and how many cookies are gone.
  */
 export function StageChrome({
+  plate,
   eaten,
-  floorAt,
 }: {
+  plate: Plate;
+  /** Cookies finished so far. */
   eaten: number;
-  /** Screen offset of the floor from viewport centre, in px. */
-  floorAt: { x: number; y: number };
 }) {
   const [hintGone, setHintGone] = useState(false);
-  const [shown, setShown] = useState(eaten);
-  const [swapping, setSwapping] = useState(false);
-  // Seeded deterministically; the crossfade below picks the real one before the
-  // counter is ever shown, so this placeholder never reaches the screen.
-  const [suffix, setSuffix] = useState<string>(SUFFIXES[0]);
 
   // The hint answers the only question a first visit has, and once the answer
   // is obvious it should never return. Memory only, so a reload starts fresh.
@@ -43,52 +41,84 @@ export function StageChrome({
     return () => window.removeEventListener('pointerdown', dismiss);
   }, [hintGone]);
 
-  // Crossfade the count: out, swap the words, back in. Both steps run off
-  // timers rather than synchronously in the effect, which would cascade.
-  useEffect(() => {
-    if (eaten === shown) return;
-    const out = window.setTimeout(() => setSwapping(true), 0);
-    const swap = window.setTimeout(() => {
-      let next: string = suffix;
-      while (next === suffix) {
-        next = SUFFIXES[Math.floor(Math.random() * SUFFIXES.length)];
-      }
-      setSuffix(next);
-      setShown(eaten);
-      setSwapping(false);
-    }, 160);
-    return () => {
-      window.clearTimeout(out);
-      window.clearTimeout(swap);
-    };
-  }, [eaten, shown, suffix]);
+  const idle = plate === 'idle';
+  const broken = plate === 'cracked' || plate === 'reading';
+  const after = plate === 'eating' || plate === 'eaten';
+
+  // The pile empties before `eaten` is bumped for the fresh cookie, so during
+  // the beat this plate is printed the finished count is one ahead of it.
+  const tally = String(eaten + 1).padStart(2, '0');
 
   return (
     <>
-      {/* The room, under the canvas: floor glow, falloff, film stock. */}
-      <div
-        className="stage__pool"
-        aria-hidden="true"
-        style={{
-          top: `calc(50% + ${Math.round(floorAt.y)}px)`,
-          marginLeft: `${Math.round(floorAt.x)}px`,
-        }}
-      />
-      <div className="vignette" aria-hidden="true" />
       <div className="grain" aria-hidden="true" />
-      <p className="chrome chrome--wordmark">kismet</p>
-      <p className={`chrome chrome--hint${hintGone ? ' is-gone' : ''}`}>
-        drag to crack
-      </p>
-      {shown > 0 && (
-        <p
-          className={`chrome chrome--counter${swapping ? ' is-swapping' : ''}`}
-          aria-live="polite"
-        >
-          <span className="chrome__count">{shown}</span>{' '}
-          {shown === 1 ? 'cookie' : 'cookies'} · {suffix}
+
+      <div className="plate">
+        {/* --- plate 1 · idle --- */}
+        <p className={f('label', idle || after)}>
+          Fortune
+          <br />
+          Telling
         </p>
-      )}
+
+        <p className={f('fineprint', idle)}>
+          One cookie, one fortune.
+          <br />
+          Drag it, or tap it three times.
+          <br />
+          Read whatever falls out.
+          <br />
+          Then eat the evidence.
+        </p>
+
+        <p className={f('credit', idle)}>
+          ANKUR
+          <br />
+          YADAV
+        </p>
+
+        <p className={f('statement', idle)}>
+          CRACK<span className="f__statement-tail"> AND FIND OUT</span>
+        </p>
+
+        <p className={f('wordmark', idle)}>KISMET</p>
+
+        <p className={f('hint', idle && !hintGone)}>d r a g</p>
+
+        <div className={f('chip', idle || after)} aria-hidden="true" />
+
+        {/* --- plate 2 · cracked --- */}
+        <div className={f('bar', broken)} aria-hidden="true" />
+
+        <p className={f('chapter', broken)}>
+          <span className="f__part">Part.</span>
+          <span className="f__numeral">01</span>
+          <span className="f__chapter-title">The Breaking</span>
+        </p>
+
+        {/* --- plate 3 · reading --- */}
+        <div className={f('vertbox', plate === 'reading')}>
+          <span>KISMET</span>
+        </div>
+
+        <p className={f('meta', plate === 'reading')}>
+          <span className="f__meta-head">
+            Happen
+            <br />
+            Ending
+          </span>
+          <span className="f__meta-body">
+            Every fortune was printed before you arrived.
+          </span>
+        </p>
+
+        {/* --- plate 4 · eaten --- */}
+        <p className={f('count', plate === 'eaten')} aria-live="polite">
+          <span className="f__no">No.</span>
+          <span className="f__tally">{tally}</span>
+          <span className="f__accepted">FATE ACCEPTED</span>
+        </p>
+      </div>
     </>
   );
 }

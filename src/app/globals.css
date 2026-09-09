@@ -1,7 +1,35 @@
+/*
+ * The page is a printed plate. Everything below is ink on paper: flat colour,
+ * a fixed margin, and two typefaces. The only thing on the sheet that is not
+ * printed is the cookie, which is a live render sitting in a transparent
+ * canvas over it.
+ */
+:root {
+  --paper: #f5f1e3;
+  --ink: #26231d;
+  --soft: #8b8574;
+  --red: #c2452f;
+  --chip-blue: #2e71d2;
+  --chip-green: #3fa55b;
+  --slip: #fffefa;
+  --slip-text: #33302b;
+
+  /* The plate margin. Every piece of furniture is hung off this. */
+  --edge: clamp(18px, 4.6vw, 62px);
+
+  --serif: var(--font-newsreader), Georgia, "Iowan Old Style", serif;
+  --sans: var(--font-jost), "Helvetica Neue", Arial, sans-serif;
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
   margin: 0;
+
+  /* Print, not typography-with-opinions: no fi/fl knitting anywhere, and no
+     discretionary flourishes creeping into the wordmark or the fortune. */
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "dlig" 0;
 }
 
 html,
@@ -19,17 +47,9 @@ body {
 }
 
 body {
-  /* After hours: a warm pool of room light falling off to near-black, centred
-     a little above middle so the cookie sits in the bright part of it. */
-  background: #231d16;
-  background-image: radial-gradient(
-    circle at 50% 38%,
-    #342b22 0%,
-    #231d16 52%,
-    #151009 100%
-  );
-  color: #e8dcc8;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -39,49 +59,13 @@ body {
   inset: 0;
 }
 
-/*
- * Stage layers, bottom to top: the floor glow, the vignette and the grain all
- * sit UNDER the canvas. The canvas is transparent, so they read as the room —
- * and keeping them below it means the cookie itself is never dimmed or
- * speckled. It is the lit thing in a dark room, which is the whole idea. It
- * also puts the contact shadow on top of the light pool, so the cookie reads
- * as grounded in the spotlight rather than floating over it.
- */
-.stage__pool {
-  position: fixed;
-  left: 50%;
-  z-index: 0;
-  width: min(58vw, 560px);
-  aspect-ratio: 1 / 0.42;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  filter: blur(2px);
-  background: radial-gradient(
-    ellipse at center,
-    rgba(255, 206, 140, 0.14) 0%,
-    rgba(255, 206, 140, 0.07) 45%,
-    rgba(255, 206, 140, 0) 72%
-  );
-}
-
-.vignette {
+/* Paper tooth. Under the canvas, so it never speckles the cookie. */
+.grain {
   position: fixed;
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(
-    ellipse at 50% 45%,
-    rgba(0, 0, 0, 0) 55%,
-    rgba(0, 0, 0, 0.5) 100%
-  );
-}
-
-.grain {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  opacity: 0.05;
+  opacity: 0.035;
   background-repeat: repeat;
   background-size: 170px 170px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='170' height='170'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -108,63 +92,316 @@ body {
   }
 }
 
-/* The quiet voice: wordmark, hint and counter. */
-.chrome {
+/* ---------------------------------------------------------------- the plate */
+
+/*
+ * All printed furniture lives in one fixed layer above the canvas. It is inert
+ * by construction: `pointer-events: none` on the layer and on every descendant,
+ * so a drag started anywhere over it still reaches the cookie underneath.
+ */
+.plate {
   position: fixed;
-  left: 0;
-  right: 0;
+  inset: 0;
   z-index: 5;
   pointer-events: none;
+}
+
+.plate * {
+  pointer-events: none;
+}
+
+/*
+ * One piece of furniture. Off-plate items are pulled out of the accessibility
+ * tree as well as hidden, so a screen reader never reads a plate that is not
+ * on the sheet. Visibility flips only after the fade has finished.
+ */
+.f {
+  position: fixed;
   margin: 0;
-  text-align: center;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
-  -webkit-font-smoothing: antialiased;
-}
-
-.chrome--wordmark {
-  top: 30px;
-  font-size: 12px;
-  letter-spacing: 0.44em;
-  color: #c3a375;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
-}
-
-.chrome--hint {
-  /* Below the cookie, which ends around 70% of the viewport height. */
-  top: 82%;
-  font-size: 11.5px;
-  letter-spacing: 0.3em;
-  color: #776a56;
-  transition: opacity 200ms ease-out;
-}
-
-.chrome--hint.is-gone {
   opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 200ms ease-out,
+    visibility 0s linear 200ms;
 }
 
-.chrome--counter {
-  bottom: 30px;
-  font-size: 11.5px;
-  letter-spacing: 0.24em;
-  color: #8d7d64;
-  font-variant-numeric: tabular-nums;
-  transition: opacity 150ms ease-out;
-}
-
-.chrome--counter.is-swapping {
-  opacity: 0;
-}
-
-.chrome__count {
-  color: #c3a375;
+.f.is-on {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 200ms ease-out,
+    visibility 0s;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chrome--hint,
-  .chrome--counter {
+  .f,
+  .f.is-on {
     transition-duration: 1ms;
+    transition-delay: 0s;
   }
 }
+
+/* --- plate 1 · idle ------------------------------------------------------ */
+
+.f--label {
+  top: var(--edge);
+  left: var(--edge);
+  font-family: var(--serif);
+  font-size: clamp(13px, 1.15vw, 17px);
+  line-height: 1.12;
+  color: var(--ink);
+}
+
+.f--fineprint {
+  top: 41%;
+  left: var(--edge);
+  /* The line breaks are written into the copy, so nothing wraps on its own. */
+  white-space: nowrap;
+  font-family: var(--serif);
+  font-size: clamp(10.5px, 0.82vw, 12.5px);
+  line-height: 1.8;
+  color: var(--soft);
+}
+
+.f--credit {
+  bottom: 13%;
+  left: var(--edge);
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(10px, 0.78vw, 12px);
+  letter-spacing: 0.2em;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* The statement, set on its side down the right margin. */
+.f--statement {
+  top: 21%;
+  right: var(--edge);
+  writing-mode: vertical-rl;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(11px, 1.05vw, 15px);
+  letter-spacing: 0.3em;
+  color: var(--ink);
+}
+
+.f--wordmark {
+  left: 0;
+  right: 0;
+  bottom: clamp(22px, 6.5%, 58px);
+  text-align: center;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: clamp(26px, 3.2vw, 42px);
+  letter-spacing: 0.14em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* The one colour chip. Nothing else on the sheet is blue. */
+.f--chip {
+  right: var(--edge);
+  bottom: clamp(58px, 15%, 132px);
+  width: 44px;
+  height: 26px;
+  background: var(--chip-blue);
+}
+
+.f--hint {
+  left: 0;
+  right: 0;
+  top: 77%;
+  text-align: center;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: clamp(9.5px, 0.78vw, 11px);
+  letter-spacing: 0.18em;
+  color: var(--soft);
+}
+
+/* --- plate 2 · cracked --------------------------------------------------- */
+
+/* The same corner slot the label holds on the idle plate — the two swap. */
+.f--bar {
+  top: var(--edge);
+  left: var(--edge);
+  width: 110px;
+  height: 18px;
+  background: var(--chip-green);
+}
+
+/*
+ * The chapter mark waits a beat before it prints: the break should read as the
+ * event and this as the caption that follows it, not the other way round.
+ */
+.f--chapter {
+  top: 23%;
+  right: var(--edge);
+  color: var(--ink);
+}
+
+.f--chapter.is-on {
+  transition-delay: 250ms;
+}
+
+.f__part {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(11px, 0.85vw, 13px);
+}
+
+.f__numeral {
+  display: block;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: clamp(48px, 5.2vw, 76px);
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.f__chapter-title {
+  display: block;
+  margin-top: 2.6em;
+  font-family: var(--serif);
+  font-size: clamp(11px, 0.85vw, 13px);
+  color: var(--soft);
+}
+
+/* --- plate 3 · reading --------------------------------------------------- */
+
+.f--vertbox {
+  top: 22%;
+  left: var(--edge);
+  height: 42%;
+  width: clamp(38px, 3.6vw, 52px);
+  display: flex;
+  justify-content: center;
+  padding-top: 14px;
+  border: 1px solid var(--ink);
+}
+
+.f--vertbox span {
+  writing-mode: vertical-rl;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: clamp(10px, 0.8vw, 12px);
+  letter-spacing: 0.42em;
+  color: var(--ink);
+}
+
+.f--meta {
+  top: 37%;
+  left: calc(var(--edge) + clamp(56px, 9vw, 130px));
+  width: clamp(124px, 12vw, 172px);
+}
+
+.f__meta-head {
+  display: block;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(11px, 0.9vw, 13px);
+  letter-spacing: 0.14em;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.f__meta-body {
+  display: block;
+  margin-top: 0.9em;
+  font-family: var(--serif);
+  font-size: clamp(10.5px, 0.82vw, 12.5px);
+  line-height: 1.75;
+  color: var(--soft);
+}
+
+/* --- plate 4 · eaten ----------------------------------------------------- */
+
+.f--count {
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: center;
+  color: var(--ink);
+}
+
+.f__no {
+  display: block;
+  font-family: var(--serif);
+  font-size: clamp(12px, 1vw, 15px);
+}
+
+.f__tally {
+  display: block;
+  font-family: var(--sans);
+  font-weight: 800;
+  font-size: clamp(84px, 12vw, 160px);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.f__accepted {
+  display: block;
+  margin-top: 1em;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: clamp(10px, 0.82vw, 12px);
+  letter-spacing: 0.35em;
+  color: var(--soft);
+}
+
+/* --- the phone plate ----------------------------------------------------- */
+
+/*
+ * A phone is not a poster. The fine print, the credit, the boxed wordmark and
+ * the reading meta all come off the sheet; the statement loses its tail.
+ */
+@media (max-width: 640px) {
+  .f--fineprint,
+  .f--credit,
+  .f--vertbox,
+  .f--meta {
+    display: none;
+  }
+
+  .f__statement-tail {
+    display: none;
+  }
+
+  .f--statement {
+    top: 27%;
+    font-size: 10px;
+  }
+
+  .f--wordmark {
+    bottom: 9%;
+    font-size: 22px;
+  }
+
+  .f--chip {
+    bottom: 4.5%;
+    width: 13vw;
+    height: 12px;
+  }
+
+  .f--chapter {
+    top: 13%;
+  }
+
+  .f--bar {
+    width: 22vw;
+    height: 14px;
+  }
+
+  .f--hint {
+    top: 74%;
+  }
+}
+
+/* ----------------------------------------------------------------- the slip */
 
 /* The fortune slip: a DOM overlay above the canvas, never a 3D object. */
 .fortune {
@@ -174,10 +411,11 @@ body {
   place-items: center;
   /* Only the slip itself is interactive; the rest of the layer is inert. */
   pointer-events: none;
-  z-index: 4;
+  z-index: 6;
 }
 
 .fortune__slip {
+  position: relative;
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
@@ -188,21 +426,34 @@ body {
 
   /* ~5:1, clamped so it stays readable on a phone. */
   width: min(78vw, 27rem);
-  padding: 1.15rem 1.6rem 0.95rem;
+  padding: 1.4rem 1.7rem 1.15rem;
 
-  background: #fdf8ec;
-  border: 0.5px solid rgba(255, 238, 205, 0.35);
-  border-radius: 2px;
+  background: var(--slip);
+  border-radius: 1px;
 
-  /* Lit paper in a dark room: a warm glow inside the edges, a deep double
-     drop shadow to sit it in the space, and a faint halo it casts back. */
+  /* Paper on paper: a tight contact shadow and a soft cast one, nothing warm. */
   box-shadow:
-    inset 0 0 22px rgba(228, 203, 160, 0.28),
-    0 2px 6px rgba(0, 0, 0, 0.45),
-    0 24px 60px rgba(0, 0, 0, 0.55),
-    0 0 70px rgba(255, 206, 140, 0.1);
+    0 1px 2px rgba(38, 35, 29, 0.1),
+    0 12px 30px rgba(38, 35, 29, 0.14);
 
   will-change: transform, opacity;
+}
+
+/* The crease it was folded on before it went into the cookie. */
+.fortune__slip::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    rgba(38, 35, 29, 0) 0%,
+    rgba(38, 35, 29, 0.14) 16%,
+    rgba(38, 35, 29, 0.14) 84%,
+    rgba(38, 35, 29, 0) 100%
+  );
 }
 
 .fortune__slip:active {
@@ -210,6 +461,7 @@ body {
 }
 
 .fortune__text {
+  position: relative;
   margin: 0;
   /* Held at two lines so a short fortune and a long one produce the same slip;
      otherwise a one-liner reads nearer 7:1 than the intended 5:1. */
@@ -219,29 +471,26 @@ body {
   justify-content: center;
   text-align: center;
   text-wrap: balance;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
-  font-size: 15px;
-  line-height: 1.45;
-  letter-spacing: 0.07em;
-  color: #3a322b;
-  -webkit-font-smoothing: antialiased;
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.55;
+  letter-spacing: 0.04em;
+  color: var(--slip-text);
 }
 
+/* The only red on the page. */
 .fortune__lucky {
-  margin: 0.5rem 0 0;
+  position: relative;
+  margin: 0.85rem 0 0;
   text-align: center;
-  font-family: Georgia, "Iowan Old Style", "Times New Roman", Times, serif;
-  font-size: 9.5px;
-  letter-spacing: 0.46em;
-  color: #a8977d;
-}
-
-.fortune__ornament {
-  color: #3a322b;
-  opacity: 0.45;
-  /* The tracking above would otherwise shove the ornaments off-centre. */
-  letter-spacing: normal;
-  padding: 0 0.55em;
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  /* The tracking would otherwise hang a gap off the right-hand end. */
+  text-indent: 0.4em;
+  color: var(--red);
 }
 
 @media (prefers-reduced-motion: reduce) {

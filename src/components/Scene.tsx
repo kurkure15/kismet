@@ -24,7 +24,7 @@ import { playCrack, preloadCrackSounds } from '@/lib/crackSound';
 import { playPaperIn, preloadPaperSounds } from '@/lib/paperSound';
 import { playCrunch, playPop, preloadCrunchSounds } from '@/lib/crunchSound';
 import { Crumbs, type CrumbBurst } from '@/components/Crumbs';
-import { StageChrome } from '@/components/StageChrome';
+import { StageChrome, type Plate } from '@/components/StageChrome';
 import { FortunePaper } from '@/components/FortunePaper';
 import { useKismet } from '@/lib/appState';
 import { nextFortune } from '@/lib/fortunes';
@@ -496,16 +496,10 @@ function CameraFraming({ geometry }: { geometry: THREE.BufferGeometry }) {
  */
 const PILE_ANCHOR = new THREE.Vector3(0, SHADOW_Y + 0.18, 0);
 
-/** The centre of the floor, so the light pool can be laid exactly under it. */
-const FLOOR_ANCHOR = new THREE.Vector3(0, SHADOW_Y, 0);
-
 function PileAnchor({
   onMeasure,
 }: {
-  onMeasure: (offsets: {
-    paper: { x: number; y: number };
-    floor: { x: number; y: number };
-  }) => void;
+  onMeasure: (offset: { x: number; y: number }) => void;
 }) {
   const camera = useThree((state) => state.camera);
   const width = useThree((state) => state.size.width);
@@ -517,7 +511,7 @@ function PileAnchor({
       const ndc = point.clone().project(camera);
       return { x: (ndc.x * width) / 2, y: (-ndc.y * height) / 2 };
     };
-    onMeasure({ paper: toScreen(PILE_ANCHOR), floor: toScreen(FLOOR_ANCHOR) });
+    onMeasure(toScreen(PILE_ANCHOR));
   }, [camera, width, height, onMeasure]);
 
   return null;
@@ -605,7 +599,6 @@ export default function Scene() {
   const kismet = useKismet();
   const [fortune, setFortune] = useState('');
   const [riseFrom, setRiseFrom] = useState({ x: 0, y: 0 });
-  const [floorAt, setFloorAt] = useState({ x: 0, y: 0 });
   /** Bumped per cookie, so per-cookie components remount clean. */
   const [generation, setGeneration] = useState(0);
   const crumbs = useRef<CrumbBurst | null>(null);
@@ -790,6 +783,22 @@ export default function Scene() {
     { filterTaps: true },
   );
 
+  /*
+   * Which plate the sheet is printed with. `pileGone` wins over the state
+   * machine: it marks the beat between the last shard and the next cookie,
+   * which is the only time the centre of the sheet is clear enough to carry
+   * the counter.
+   */
+  const plate: Plate = pileGone
+    ? 'eaten'
+    : kismet.state === 'cracked'
+      ? 'cracked'
+      : kismet.state === 'reading'
+        ? 'reading'
+        : kismet.isBroken
+          ? 'eating'
+          : 'idle';
+
   return (
     <div
       className={ready ? 'stage__canvas is-ready' : 'stage__canvas'}
@@ -817,18 +826,7 @@ export default function Scene() {
             onEmptied={respawn}
           />
           <Crumbs handle={crumbs} />
-          <PileAnchor
-            onMeasure={useCallback(
-              (o: {
-                paper: { x: number; y: number };
-                floor: { x: number; y: number };
-              }) => {
-                setRiseFrom(o.paper);
-                setFloorAt(o.floor);
-              },
-              [],
-            )}
-          />
+          <PileAnchor onMeasure={setRiseFrom} />
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>
 
@@ -857,7 +855,7 @@ export default function Scene() {
         {debug && <OrbitControls makeDefault />}
       </Canvas>
 
-      <StageChrome eaten={generation} floorAt={floorAt} />
+      <StageChrome plate={plate} eaten={generation} />
 
       {kismet.state === 'reading' && (
         <FortunePaper
