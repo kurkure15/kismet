@@ -18,6 +18,9 @@ export type Plate = 'idle' | 'cracked' | 'reading' | 'eating' | 'eaten';
 /** How long the whisper stays if nobody touches anything. */
 const HINT_MS = 4000;
 
+/** A pointer has to travel this far before it counts as a drag, not a tap. */
+const DRAG_SLOP = 6;
+
 /** Marks one piece of furniture on or off the current plate. */
 function f(modifier: string, on: boolean) {
   return `f f--${modifier}${on ? ' is-on' : ''}`;
@@ -64,25 +67,38 @@ export function StageChrome({
     };
   }, [hintGone]);
 
-  // Poster at rest, toy in motion. Any hand on the screen — on the cookie, on
-  // the pile, on the slip — drops the whole sheet back to a watermark, and it
-  // prints again the moment the hand comes off. Listened for on the window
-  // rather than wired through the gesture layers, so there is exactly one
-  // rule and no gesture can forget to obey it.
+  // Poster at rest, toy in motion. While a hand is dragging something — the
+  // cookie, the pile, the slip — the whole sheet drops back to a watermark,
+  // and it prints again the moment the hand comes off. A bare tap does not
+  // count: dimming on pointer-down made every tap a blink. It waits for the
+  // pointer to actually travel. Listened for on the window rather than wired
+  // through the gesture layers, so there is exactly one rule.
   useEffect(() => {
-    // Except a hand on the two things you can actually use: typing a
-    // fortune, or following the credit, should not dim the sheet.
+    let downAt: { x: number; y: number } | null = null;
     const down = (event: PointerEvent) => {
+      // Except a hand on the two things you can actually use: typing a
+      // fortune, or following the credit, should not dim the sheet.
       const target = event.target as Element | null;
       if (target?.closest('.f--plus, .f--credit a, .compose')) return;
+      downAt = { x: event.clientX, y: event.clientY };
+    };
+    const move = (event: PointerEvent) => {
+      if (!downAt) return;
+      if (Math.hypot(event.clientX - downAt.x, event.clientY - downAt.y) < DRAG_SLOP) return;
+      downAt = null;
       setQuiet(true);
     };
-    const up = () => setQuiet(false);
+    const up = () => {
+      downAt = null;
+      setQuiet(false);
+    };
     window.addEventListener('pointerdown', down);
+    window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', up);
     return () => {
       window.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
     };

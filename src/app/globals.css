@@ -301,7 +301,10 @@ body {
  * rule; this opts back in.
  */
 .f--plus {
-  bottom: 58px;
+  /* Its hairlines sit on the name and the credit's centre line: they are
+     18px tall on a 75px bottom, so their centre is at 84px; this box is 40px
+     tall, so its centre lands there too. */
+  bottom: 64px;
   left: 50%;
   margin-left: -20px;
   width: 40px;
@@ -471,22 +474,38 @@ body {
     padding: 0 48px;
   }
 
+  /* Smaller on a phone-width sheet: the hand is wide, and at 16px three
+     words filled a line. */
   .compose__field {
-    font-size: 16px;
+    font-size: 13px;
+    line-height: 1.9;
   }
 
-  /* "Write a good fortune for someone" is a long line for a phone-width
-     sheet in this hand; the prompt is set small so it fits in one, and the
-     writing itself stays at full size. */
   .compose__field::placeholder {
     font-size: 12px;
   }
 }
 
+/*
+ * On a phone the bottom line is one line: the name on the left, the credit
+ * on the right, both at 12px, and the + sitting between them on the same
+ * centre line. Everything hangs off --line so the three cannot drift apart.
+ */
 @media (max-width: 640px) {
+  :root {
+    --line: calc(var(--edge) + 12px);
+  }
+
   .f--name,
   .f--credit {
-    bottom: calc(var(--edge) + 12px);
+    bottom: var(--line);
+    font-size: 12px;
+  }
+
+  .f--plus {
+    /* 12px text on --line has its centre 6px up; this 40px box needs its
+       centre there too. */
+    bottom: calc(var(--line) - 14px);
   }
 }
 
