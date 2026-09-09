@@ -56,6 +56,10 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
+  // iOS zooms the page into any focused field set under 16px, and the
+  // writing field is 13px on a phone. This stops that. Pinch-zoom still
+  // works — Safari ignores the cap for it — so nothing is taken away.
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
