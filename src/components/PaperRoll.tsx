@@ -284,6 +284,10 @@ async function print(canvas: HTMLCanvasElement, text: string) {
   for (const ch of text) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
   stock(ctx, canvas.width, canvas.height, seed);
 
+  // A blank sheet, for writing on. The words are typed over it in the DOM
+  // until they are sent, and printed here only then.
+  if (!text) return;
+
   ctx.fillStyle = INK_COLOUR;
   ctx.font = font;
   ctx.textAlign = 'center';

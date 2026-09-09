@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { EatLine } from '@/components/EatLine';
 
 /**
  * Which plate the sheet is printed with: the state machine, plus one extra
@@ -26,7 +27,20 @@ function f(modifier: string, on: boolean) {
  * It never touches the cookie, the pile or the slip — the only thing it reads
  * from them is which plate to print.
  */
-export function StageChrome({ plate }: { plate: Plate }) {
+export function StageChrome({
+  plate,
+  composing,
+  toast,
+  onCompose,
+}: {
+  plate: Plate;
+  /** The sheet is out for writing on; the + reads as a ×. */
+  composing: boolean;
+  /** One quiet line, or nothing. */
+  toast: string | null;
+  /** The + (or the ×) was pressed. */
+  onCompose: () => void;
+}) {
   const [quiet, setQuiet] = useState(false);
   const [hintGone, setHintGone] = useState(false);
 
@@ -46,7 +60,13 @@ export function StageChrome({ plate }: { plate: Plate }) {
   // rather than wired through the gesture layers, so there is exactly one
   // rule and no gesture can forget to obey it.
   useEffect(() => {
-    const down = () => setQuiet(true);
+    // Except a hand on the two things you can actually use: typing a
+    // fortune, or following the credit, should not dim the sheet.
+    const down = (event: PointerEvent) => {
+      const target = event.target as Element | null;
+      if (target?.closest('.f--plus, .f--credit a, .compose')) return;
+      setQuiet(true);
+    };
     const up = () => setQuiet(false);
     window.addEventListener('pointerdown', down);
     window.addEventListener('pointerup', up);
@@ -67,7 +87,24 @@ export function StageChrome({ plate }: { plate: Plate }) {
       <div className="grain" aria-hidden="true" />
 
       <div className={`plate${quiet ? ' is-quiet' : ''}`}>
+        {/* Speaks only when there is something recent to say; it turns its
+            own visibility on, since the plate cannot know. */}
+        <EatLine className={idle && !toast ? 'f f--eat' : 'f f--eat is-off'} />
+
         <p className={f('hint', idle && !hintGone)}>Drag to break</p>
+
+        {/* Write one for someone. The one control on the sheet; it turns
+            into the way out once the paper is open. */}
+        <button
+          type="button"
+          className={`${f('plus', idle)}${composing ? ' is-open' : ''}`}
+          aria-label={composing ? 'Close' : 'Write a fortune for someone'}
+          onClick={onCompose}
+        />
+
+        <p className={f('toast', !!toast)} aria-live="polite">
+          {toast ?? ''}
+        </p>
 
         {/* The bottom line: the name in the hand, the credit in small print. */}
         <p className={f('name', idle)}>Fortune Teller</p>

@@ -28,6 +28,7 @@ import { StageChrome, type Plate } from '@/components/StageChrome';
 import { FortunePaper, type PaperHandle } from '@/components/FortunePaper';
 import { PaperRoll } from '@/components/PaperRoll';
 import { PaperStage } from '@/components/PaperStage';
+import { ComposeFortune } from '@/components/ComposeFortune';
 import { useKismet } from '@/lib/appState';
 import { nextFortune } from '@/lib/fortunes';
 import {
@@ -616,6 +617,20 @@ export default function Scene() {
   /** The cookie's canvas, which goes soft as the fortune is pulled open. */
   const cookieCanvas = useRef<HTMLDivElement>(null);
 
+  /** Writing a fortune for someone: a second sheet, and the cookie waits. */
+  const [composing, setComposing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const composePaper = useRef<PaperHandle | null>(null);
+  /** One quiet line at the bottom, for a few seconds. */
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  const say = useCallback((line: string | null) => {
+    window.clearTimeout(toastTimer.current);
+    setToast(line);
+    if (line) toastTimer.current = window.setTimeout(() => setToast(null), 4200);
+  }, []);
+
   // Written straight to the element rather than through state: the pull
   // reports every frame, and re-rendering the scene for each would be silly.
   // Cleared when the paper goes, so the toy comes back sharp.
@@ -733,6 +748,10 @@ export default function Scene() {
   useEffect(() => () => window.clearTimeout(respawnTimer.current), []);
 
   const respawn = useCallback(() => {
+    // Tell the sheet. Country only, fire and forget — the page never waits
+    // on it and never hears back; the line at the top finds out by asking.
+    void fetch('/api/eats', { method: 'POST', keepalive: true }).catch(() => {});
+
     // Shadow starts fading the moment the last shard goes, so it is gone by the
     // time the beat ends and comes back with the new cookie.
     setPileGone(true);
@@ -765,7 +784,7 @@ export default function Scene() {
 
   const bind = useDrag(
     ({ first, last, tap, movement: [mx, my] }) => {
-      if (hasCracked.current || kismet.pileLocked) return;
+      if (hasCracked.current || kismet.pileLocked || composing) return;
 
       if (first) dragging.current = onCookie.current;
 
@@ -892,9 +911,40 @@ export default function Scene() {
         {kismet.state === 'reading' && (
           <PaperRoll handle={paper} fortune={fortune} />
         )}
+        {composing && <PaperRoll handle={composePaper} fortune={draft} />}
       </PaperStage>
 
-      <StageChrome plate={plate} />
+      <StageChrome
+        plate={plate}
+        composing={composing}
+        toast={toast}
+        onCompose={() => {
+          if (composing) {
+            // The × — closing is the same as cancelling.
+            setComposing(false);
+            soften(0);
+            return;
+          }
+          if (kismet.state !== 'idle') return;
+          say(null);
+          setDraft('');
+          setComposing(true);
+          soften(1);
+        }}
+      />
+
+      {composing && (
+        <ComposeFortune
+          handle={composePaper}
+          reducedMotion={reducedMotion}
+          onPrint={setDraft}
+          onDone={(line) => {
+            setComposing(false);
+            soften(0);
+            say(line);
+          }}
+        />
+      )}
 
       {kismet.state === 'reading' && (
         <FortunePaper

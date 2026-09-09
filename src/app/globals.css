@@ -261,6 +261,201 @@ body {
   font-feature-settings: normal;
 }
 
+/*
+ * The line at the top: someone, somewhere, just ate a cookie. It decides
+ * for itself whether it has anything to say (is-on), and the plate can only
+ * take it away (is-off).
+ */
+.f--eat {
+  top: var(--edge);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--grotesk);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.f--eat.is-off {
+  opacity: 0;
+  visibility: hidden;
+}
+
+/*
+ * The one control on the sheet: a + in the top-right corner, two hairlines.
+ * It opens a blank sheet to write on, and turns a quarter to become the ×
+ * that puts it away. The plate is inert by rule; this opts back in.
+ */
+.f--plus {
+  top: calc(var(--edge) - 10px);
+  right: calc(var(--edge) - 10px);
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+  color: var(--soft);
+  transition:
+    opacity 200ms ease-out,
+    visibility 0s,
+    color 150ms ease-out,
+    transform 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.f--plus::before,
+.f--plus::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 1px;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.f--plus::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.f--plus:hover {
+  color: var(--ink);
+}
+
+.f--plus.is-open {
+  transform: rotate(45deg);
+  color: var(--ink);
+}
+
+/* The quiet line after sending. It takes the top line for a few seconds;
+   the eat line steps aside for it. */
+.f--toast {
+  top: var(--edge);
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--grotesk);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--soft);
+}
+
+/* ------------------------------------------------------------ writing one */
+
+/*
+ * The writing layer: a native field laid over the blank paper in the canvas
+ * below, in register with it — same footprint, same tilt, same lift — so the
+ * caret sits on the sheet. Everything but the field and the arrow is inert.
+ */
+.compose {
+  position: fixed;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transform: translateY(calc(-1 * var(--lift)));
+}
+
+.compose__sheet {
+  position: relative;
+  pointer-events: auto;
+  width: min(86vw, 40rem);
+  aspect-ratio: 5 / 1;
+  display: flex;
+  align-items: center;
+  padding: 0 64px 0 40px;
+  transform: rotate(-2deg);
+  transition: opacity 180ms ease-out;
+}
+
+.compose.is-sending .compose__sheet {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.compose__field {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+  text-align: center;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 22px;
+  line-height: 1.7;
+  color: var(--ink);
+  caret-color: var(--ink);
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
+  /* The page turns selection off everywhere; a field needs it back. */
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.compose__field::placeholder {
+  color: var(--faint);
+}
+
+.compose__send {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 36px;
+  height: 36px;
+  margin-top: -18px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+.compose__send:hover:not(:disabled) {
+  border-color: var(--ink);
+}
+
+.compose__send:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.compose__note {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(50% + min(43vw, 20rem) * 0.2 + 20px);
+  text-align: center;
+  font-family: var(--grotesk);
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--soft);
+}
+
+@media (max-width: 640px) {
+  .compose__sheet {
+    padding: 0 52px 0 24px;
+  }
+
+  .compose__field {
+    font-size: 18px;
+    line-height: 1.6;
+  }
+}
+
 @media (max-width: 640px) {
   .f--name,
   .f--credit {
