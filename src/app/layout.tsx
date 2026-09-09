@@ -1,22 +1,23 @@
 import type { Metadata, Viewport } from "next";
-import { Jost, Newsreader } from "next/font/google";
+import { EB_Garamond, Jost } from "next/font/google";
 import "./globals.css";
 
 /**
  * Exactly two voices, and no third one anywhere on the page.
  *
- * Newsreader carries everything that is meant to be read — the corner label,
- * the fine print, the fortune itself. Jost carries everything that is meant to
- * be seen: the wordmark, the chapter numeral, the counter.
+ * EB Garamond carries the one thing that is meant to be read — the fortune,
+ * printed onto the paper. Jost carries everything that is meant to be seen:
+ * the name on its side, the credit.
  *
  * Both come through next/font, which downloads the files at build time and
  * serves them from our own origin, so the running page makes no request to
- * Google. Both are variable fonts, so the weight range comes in one file each.
+ * Google. The Garamond is drawn onto a canvas texture rather than set in the
+ * DOM, but it is the same self-hosted face either way.
  */
-const newsreader = Newsreader({
+const serif = EB_Garamond({
   subsets: ["latin"],
-  weight: ["400"],
-  variable: "--font-newsreader",
+  weight: ["400", "500"],
+  variable: "--font-serif",
   display: "swap",
 });
 
@@ -61,7 +62,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${newsreader.variable} ${jost.variable}`}>
+    <html lang="en" className={`${serif.variable} ${jost.variable}`}>
       <body>{children}</body>
     </html>
   );

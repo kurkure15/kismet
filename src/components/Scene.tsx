@@ -25,7 +25,9 @@ import { preloadPaperSounds } from '@/lib/paperSound';
 import { playCrunch, playPop, preloadCrunchSounds } from '@/lib/crunchSound';
 import { Crumbs, type CrumbBurst } from '@/components/Crumbs';
 import { StageChrome, type Plate } from '@/components/StageChrome';
-import { FortunePaper } from '@/components/FortunePaper';
+import { FortunePaper, type PaperHandle } from '@/components/FortunePaper';
+import { PaperRoll } from '@/components/PaperRoll';
+import { PaperStage } from '@/components/PaperStage';
 import { useKismet } from '@/lib/appState';
 import { nextFortune } from '@/lib/fortunes';
 import {
@@ -336,7 +338,11 @@ function CookieStage({
         if (!mesh.isMesh) return;
         const own = mesh.material as THREE.Material;
         const swapped =
-          own === source ? material : own === interiorSource && interior ? interior : own;
+          own === source
+            ? material
+            : own === interiorSource && interior
+              ? interior
+              : own;
         parts.push({ geometry: mesh.geometry, material: swapped });
       });
       if (parts.length === 0) continue;
@@ -549,8 +555,7 @@ function ShadowFade({
     const eased = 1 - Math.pow(1 - level.current, 3);
     node.traverse((child) => {
       const material = (child as THREE.Mesh).material as
-        | THREE.Material
-        | undefined;
+        THREE.Material | undefined;
       if (material && 'opacity' in material) {
         (material as THREE.MeshBasicMaterial).opacity = SHADOW.opacity * eased;
       }
@@ -602,6 +607,10 @@ export default function Scene() {
   /** Bumped per cookie, so per-cookie components remount clean. */
   const [generation, setGeneration] = useState(0);
   const crumbs = useRef<CrumbBurst | null>(null);
+  /** The live position and openness of the fortune, published by its gestures. */
+  const paper = useRef<PaperHandle | null>(null);
+  /** The fortune has been pulled fully open, so the toy goes soft behind it. */
+  const [paperOpen, setPaperOpen] = useState(false);
   const firstBiteDone = useRef(false);
   const shadowGroup = useRef<THREE.Group>(null);
   /** The pile is gone, so its shadow should be too. */
@@ -802,61 +811,74 @@ export default function Scene() {
           ? 'eating'
           : 'idle';
 
+  const soft = paperOpen && kismet.state === 'reading';
+
   return (
     <div
       className={ready ? 'stage__canvas is-ready' : 'stage__canvas'}
       {...bind()}
     >
-      <Canvas
-        camera={{ position: CAMERA_POSITION, fov: FOV }}
-        gl={{ toneMappingExposure: 0.7 }}
-      >
-        <Suspense fallback={null}>
-          <Environment files={HDRI_URL} environmentIntensity={0.4} />
-          <CookieStage
-            drag={drag}
-            reducedMotion={reducedMotion}
-            cracked={kismet.isBroken}
-            armed={armed}
-            settled={settled}
-            edible={kismet.edible}
-            generation={generation}
-            onPointerDownCookie={() => {
-              onCookie.current = true;
-            }}
-            onSettled={() => setSettled(true)}
-            onBite={handleBite}
-            onEmptied={respawn}
-          />
-          <Crumbs handle={crumbs} />
-          <PileAnchor onMeasure={setRiseFrom} />
-          <RevealOnFirstFrame onReady={() => setReady(true)} />
-        </Suspense>
+      <div className={soft ? 'stage__cookie is-soft' : 'stage__cookie'}>
+        <Canvas
+          camera={{ position: CAMERA_POSITION, fov: FOV }}
+          gl={{ toneMappingExposure: 0.7 }}
+        >
+          <Suspense fallback={null}>
+            <Environment files={HDRI_URL} environmentIntensity={0.4} />
+            <CookieStage
+              drag={drag}
+              reducedMotion={reducedMotion}
+              cracked={kismet.isBroken}
+              armed={armed}
+              settled={settled}
+              edible={kismet.edible}
+              generation={generation}
+              onPointerDownCookie={() => {
+                onCookie.current = true;
+              }}
+              onSettled={() => setSettled(true)}
+              onBite={handleBite}
+              onEmptied={respawn}
+            />
+            <Crumbs handle={crumbs} />
+            <PileAnchor onMeasure={setRiseFrom} />
+            <RevealOnFirstFrame onReady={() => setReady(true)} />
+          </Suspense>
 
-        {/* The approved phase 1 key: warm, high and to the left, so the
+          {/* The approved phase 1 key: warm, high and to the left, so the
             crust keeps a lit side and a shaded side. Frozen — the dark-room
             relight that briefly lived here is gone with the dark room. */}
-        <directionalLight
-          position={[-2.6, 3.8, 2.4]}
-          intensity={2.6}
-          color="#ffc078"
-        />
+          <directionalLight
+            position={[-2.6, 3.8, 2.4]}
+            intensity={2.6}
+            color="#ffc078"
+          />
 
-        <ContactShadows
-          ref={shadowGroup}
-          frames={settled && !shadowLive ? 1 : Infinity}
-          position={[0, SHADOW_Y, 0]}
-          scale={4.5}
-          blur={2.8}
-          opacity={0.45}
-          far={1.8}
-          resolution={1024}
-          color="#6f4f31"
-        />
-        <ShadowFade target={shadowGroup} visible={!pileGone} />
+          <ContactShadows
+            ref={shadowGroup}
+            frames={settled && !shadowLive ? 1 : Infinity}
+            position={[0, SHADOW_Y, 0]}
+            scale={4.5}
+            blur={2.8}
+            opacity={0.45}
+            far={1.8}
+            resolution={1024}
+            color="#6f4f31"
+          />
+          <ShadowFade target={shadowGroup} visible={!pileGone} />
 
-        {debug && <OrbitControls makeDefault />}
-      </Canvas>
+          {debug && <OrbitControls makeDefault />}
+        </Canvas>
+      </div>
+
+      {/* The fortune, as geometry, in a scene of its own over the cookie's.
+          Mounted for exactly as long as its gesture controller below is, so
+          the two can never disagree. */}
+      <PaperStage>
+        {kismet.state === 'reading' && (
+          <PaperRoll handle={paper} fortune={fortune} />
+        )}
+      </PaperStage>
 
       <StageChrome plate={plate} />
 
@@ -865,7 +887,12 @@ export default function Scene() {
           fortune={fortune}
           riseFrom={riseFrom}
           reducedMotion={reducedMotion}
-          onDismiss={() => kismet.send('dismiss')}
+          handle={paper}
+          onOpen={() => setPaperOpen(true)}
+          onDismiss={() => {
+            setPaperOpen(false);
+            kismet.send('dismiss');
+          }}
         />
       )}
     </div>

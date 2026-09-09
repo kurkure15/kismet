@@ -1,15 +1,16 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   animate,
   motion,
   useMotionValue,
   useSpring,
-  useTransform,
+  type MotionValue,
 } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { playPaperIn, playPaperThrow } from '@/lib/paperSound';
+import { quoted } from '@/components/PaperRoll';
 
 /** Enter: a spring with ease-out character, settling in roughly 450ms. */
 export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
@@ -18,33 +19,9 @@ export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
 const REST_ROTATION = -2;
 
 /**
- * How the slip sits while it is still rolled: a narrow curled sliver, squeezed
- * along its length and tipped away from the viewer so the curve of the roll
- * catches the light before it flattens out. It arrives like this and stays
- * like this until somebody pulls it open.
- *
- * `scaleX` is the whole trick — the strip opens along its length, which is
- * what unrolling looks like. The tilt is what stops it reading as a rectangle
- * being scaled up; the perspective it needs lives on `.fortune` in the CSS.
+ * Its resting tilt while still rolled, degrees. Steeper than the open slip —
+ * a tube standing in a pile of shards does not stand up straight.
  */
-const ROLLED = { scaleX: 0.075, scaleY: 0.96, curlDeg: 26 } as const;
-
-/**
- * Rolling a strip along its length does not shorten it, so the tube is as long
- * as the flat slip is tall and the shading is what has to carry the roll. Two
- * crossfades do it, both keyed off the same `unroll` value:
- *
- *   the cylinder shading is opaque while it is wound and gone by two-thirds
- *   open, where the flat paper's own gentle curl takes over;
- *
- *   the fortune itself only arrives in the last half of the pull, because a
- *   line of type squeezed into a 32px tube is grey mush, and because paper
- *   that has not been opened yet should not be readable.
- */
-const ROLL_SHADE_OUT = [0, 0.62] as const;
-const TEXT_IN = [0.5, 0.95] as const;
-
-/** Its resting tilt while still rolled, degrees. Steeper than the open slip. */
 const ROLLED_ROTATION = -8;
 
 /**
@@ -203,16 +180,42 @@ export function planThrow(release: Release): ThrowPlan {
   };
 }
 
+/**
+ * What the paper mesh reads each frame. Screen-space throughout — pixels from
+ * the viewport centre, degrees in the plane of the screen — because that is
+ * the space the gestures live in; the mesh converts to world units itself.
+ */
+export type PaperHandle = {
+  /** 0 wound, 1 open. */
+  unroll: MotionValue<number>;
+  x: MotionValue<number>;
+  y: MotionValue<number>;
+  rotate: MotionValue<number>;
+  opacity: MotionValue<number>;
+};
+
+/**
+ * The fortune's gestures and springs, and nothing you can see. The paper on
+ * screen is a mesh in the canvas (PaperRoll) that follows the values published
+ * through `handle`. What this renders is an invisible hand-hold over the
+ * paper's resting place, so there is always something full-sized to grab — a
+ * wound roll is only a few dozen pixels wide.
+ */
 export function FortunePaper({
   fortune,
   riseFrom,
   reducedMotion,
+  handle,
+  onOpen,
   onDismiss,
 }: {
   fortune: string;
   /** Screen offset of the pile from viewport centre, in px. */
   riseFrom: { x: number; y: number };
   reducedMotion: boolean;
+  handle: React.RefObject<PaperHandle | null>;
+  /** The roll has been pulled past the point of no return and is opening. */
+  onOpen: () => void;
   onDismiss: () => void;
 }) {
   const dragX = useMotionValue(0);
@@ -224,16 +227,19 @@ export function FortunePaper({
 
   /*
    * How far open the roll is, 0 to 1. One value drives the whole thing — the
-   * width it opens to, the squeeze along its height, and the curl flattening
-   * out — so the paper cannot come apart into three unrelated animations, and
-   * a half-finished pull is always a real, coherent half-open roll.
+   * length of paper lying flat and the size of the coil still wound at the end
+   * of it — so a half-finished pull is always a real, coherent half-open roll.
    */
   const unroll = useMotionValue(reducedMotion ? 1 : 0);
-  const scaleX = useTransform(unroll, [0, 1], [ROLLED.scaleX, 1]);
-  const scaleY = useTransform(unroll, [0, 1], [ROLLED.scaleY, 1]);
-  const curl = useTransform(unroll, [0, 1], [ROLLED.curlDeg, 0]);
-  const rollShade = useTransform(unroll, [...ROLL_SHADE_OUT], [1, 0]);
-  const textIn = useTransform(unroll, [...TEXT_IN], [0, 1]);
+
+  // Hand the live values to whoever draws the paper. Nothing here is rendered
+  // to the screen; the roll itself is a mesh in the canvas that reads these
+  // every frame.
+  useImperativeHandle(
+    handle,
+    () => ({ unroll, x, y, rotate, opacity }),
+    [unroll, x, y, rotate, opacity],
+  );
 
   const grab = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState(false);
@@ -246,6 +252,8 @@ export function FortunePaper({
   // be pulled open.
   useEffect(() => {
     if (reducedMotion) {
+      // It arrives already open, so it is open.
+      onOpen();
       animate(opacity, 1, { duration: 0.2, ease: 'easeOut' });
       return;
     }
@@ -304,6 +312,7 @@ export function FortunePaper({
         const spring = { type: 'spring' as const, ...UNROLL_SPRING };
         if (pulled >= OPEN_THRESHOLD) {
           opened.current = true;
+          onOpen();
           playPaperIn();
           animate(unroll, 1, spring);
           animate(rotate, REST_ROTATION, spring);
@@ -362,29 +371,18 @@ export function FortunePaper({
     },
   );
 
-  /*
-   * Two elements, not one. The outer takes the gesture and the travel; the
-   * inner takes the roll. A transform shrinks the box it is applied to, so a
-   * single element would leave a 30px-wide target to grab hold of — the outer
-   * one stays full width whatever the roll is doing.
-   */
+  // The hand-hold rides along with the paper, so a slow drag that springs
+  // back still has the target under the pointer at the end of it. The text is
+  // in here for screen readers only — sighted users read it off the mesh.
   return (
     <div className="fortune" aria-live="polite">
-      <motion.div ref={grab} className="fortune__grab" style={{ x, y }}>
-        <motion.div
-          className="fortune__slip"
-          style={{ rotate, rotateX: curl, scaleX, scaleY, opacity }}
-          role="note"
-        >
-          <motion.div
-            className="fortune__roll"
-            style={{ opacity: rollShade }}
-            aria-hidden="true"
-          />
-          <motion.p className="fortune__text" style={{ opacity: textIn }}>
-            {fortune}
-          </motion.p>
-        </motion.div>
+      <motion.div
+        ref={grab}
+        className="fortune__grab"
+        style={{ x, y }}
+        role="note"
+      >
+        <p className="sr-only">{quoted(fortune)}</p>
       </motion.div>
     </div>
   );
