@@ -381,11 +381,12 @@ body {
   aspect-ratio: 5 / 1;
   display: flex;
   align-items: center;
-  padding: 0 64px 0 40px;
-  /* The paper below leans 7 degrees toward the viewer, which puts its face a
-     little lower on screen than a flat rectangle at the same spot; the field
-     follows it down so the caret sits on the sheet, not above it. */
-  transform: rotate(-2deg) translateY(17%);
+  /* Even on both sides, so the text centres on the paper; the arrow lives
+     in the right-hand margin. */
+  padding: 0 64px;
+  /* Placed by the paper itself: PaperRoll projects its face to the screen
+     every frame and writes this element's transform. */
+  transform: rotate(-2deg);
   transition: opacity 180ms ease-out;
 }
 
@@ -408,7 +409,9 @@ body {
   font-family: var(--hand);
   font-weight: 400;
   font-size: 20px;
-  line-height: 1.55;
+  /* The hand's ascenders and loops stand nearly a full em above and below
+     the x-height. A tighter line box clipped the tops of the letters. */
+  line-height: 2;
   color: var(--ink);
   caret-color: var(--ink);
   font-variant-ligatures: normal;
@@ -465,12 +468,11 @@ body {
 
 @media (max-width: 640px) {
   .compose__sheet {
-    padding: 0 52px 0 24px;
+    padding: 0 48px;
   }
 
   .compose__field {
     font-size: 16px;
-    line-height: 1.5;
   }
 }
 

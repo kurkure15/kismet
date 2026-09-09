@@ -15,6 +15,9 @@ import { EatLine } from '@/components/EatLine';
  */
 export type Plate = 'idle' | 'cracked' | 'reading' | 'eating' | 'eaten';
 
+/** How long the whisper stays if nobody touches anything. */
+const HINT_MS = 4000;
+
 /** Marks one piece of furniture on or off the current plate. */
 function f(modifier: string, on: boolean) {
   return `f f--${modifier}${on ? ' is-on' : ''}`;
@@ -48,13 +51,17 @@ export function StageChrome({
   const [hintGone, setHintGone] = useState(false);
 
   // The whisper under the cookie answers the only question a first visit
-  // has, and once the answer is obvious it should never return. Memory only,
-  // so a reload starts fresh.
+  // has. It goes at the first touch, or after four seconds on its own, and
+  // once gone it never returns. Memory only, so a reload starts fresh.
   useEffect(() => {
     if (hintGone) return;
     const dismiss = () => setHintGone(true);
+    const timer = window.setTimeout(dismiss, HINT_MS);
     window.addEventListener('pointerdown', dismiss, { once: true });
-    return () => window.removeEventListener('pointerdown', dismiss);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('pointerdown', dismiss);
+    };
   }, [hintGone]);
 
   // Poster at rest, toy in motion. Any hand on the screen — on the cookie, on

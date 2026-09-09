@@ -121,10 +121,19 @@ const FROM_PX = 34;
  * x=0: the group's origin is the paper's on-screen centre, and as it opens the
  * coil recedes while the flat part grows, rather than either end staying put.
  */
-function layout(positions: Float32Array, unroll: number, creases: Crease[]) {
+/** Where the open part of the strip lies, in strip units, after centring. */
+type Extent = { left: number; right: number };
+
+function layout(
+  positions: Float32Array,
+  unroll: number,
+  creases: Crease[],
+): Extent {
   const wound = Math.max(MIN_WOUND, 1 - unroll);
   const flat = 1 - wound;
-  const R = Math.sqrt(CORE_RADIUS * CORE_RADIUS + (THICKNESS * wound) / Math.PI);
+  const R = Math.sqrt(
+    CORE_RADIUS * CORE_RADIUS + (THICKNESS * wound) / Math.PI,
+  );
 
   const cols = SEGMENTS + 1;
   const rows = ROWS + 1;
@@ -175,6 +184,7 @@ function layout(positions: Float32Array, unroll: number, creases: Crease[]) {
 
   const shift = (xmin + xmax) / 2;
   for (let k = 0; k < positions.length; k += 3) positions[k] -= shift;
+  return { left: -shift, right: flat - shift };
 }
 
 /** The hand next/font installed, by whatever name it gave it. */
@@ -230,7 +240,12 @@ function makeCreases(seed: number): Crease[] {
  * All at very low contrast — it has to read as texture under a lamp, never as
  * dirt — and seeded from the text so the sheet is stable.
  */
-function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
+function stock(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  seed: number,
+) {
   const rand = seeded(seed);
   ctx.fillStyle = PAPER_COLOUR;
   ctx.fillRect(0, 0, w, h);
@@ -242,7 +257,10 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
     const r = (0.18 + rand() * 0.3) * w;
     const warm = rand() > 0.5;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, warm ? 'rgba(150,140,120,0.03)' : 'rgba(110,115,125,0.025)');
+    g.addColorStop(
+      0,
+      warm ? 'rgba(150,140,120,0.03)' : 'rgba(110,115,125,0.025)',
+    );
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
@@ -364,11 +382,19 @@ export function PaperRoll({
   handle,
   fortune,
   from,
+  onFace,
 }: {
   handle: React.RefObject<PaperHandle | null>;
   fortune: string;
   /** Two-letter country a visitor's fortune was sent from, if it was. */
   from?: string;
+  /**
+   * Where the paper's face is on screen, every frame: its centre's offset
+   * from the viewport centre in px, and its tilt in CSS degrees. The owner of
+   * the writing field uses it to keep the field over the sheet, so the two
+   * never drift apart however the sheet is sized, lifted or leaned.
+   */
+  onFace?: (dx: number, dy: number, rotateDeg: number) => void;
 }) {
   const camera = useThree((state) => state.camera as THREE.PerspectiveCamera);
   const size = useThree((state) => state.size);
@@ -383,7 +409,8 @@ export function PaperRoll({
   // Seeded from the text, like the stock, so the sheet is the same each time.
   const creases = useMemo(() => {
     let seed = 2166136261;
-    for (const ch of fortune) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
+    for (const ch of fortune)
+      seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
     return makeCreases(seed ^ 0x9e3779b9);
   }, [fortune]);
 
@@ -428,10 +455,12 @@ export function PaperRoll({
       lean: new THREE.Quaternion(),
       axisZ: new THREE.Vector3(0, 0, 1),
       axisX: new THREE.Vector3(1, 0, 0),
+      corner: new THREE.Vector3(),
     }),
     [],
   );
   const lastUnroll = useRef(-1);
+  const extent = useRef<Extent>({ left: -0.5, right: 0.5 });
 
   useFrame(() => {
     const live = handle.current;
@@ -444,7 +473,7 @@ export function PaperRoll({
     if (geo && unroll !== lastUnroll.current) {
       lastUnroll.current = unroll;
       const position = geo.attributes.position as THREE.BufferAttribute;
-      layout(position.array as Float32Array, unroll, creases);
+      extent.current = layout(position.array as Float32Array, unroll, creases);
       position.needsUpdate = true;
       geo.computeVertexNormals();
     }
@@ -473,7 +502,10 @@ export function PaperRoll({
       THREE.MathUtils.degToRad(-live.rotate.get()),
     );
     const tilt = TILT_ROLLED_DEG + (TILT_OPEN_DEG - TILT_ROLLED_DEG) * unroll;
-    scratch.lean.setFromAxisAngle(scratch.axisX, THREE.MathUtils.degToRad(tilt));
+    scratch.lean.setFromAxisAngle(
+      scratch.axisX,
+      THREE.MathUtils.degToRad(tilt),
+    );
     node.quaternion
       .copy(camera.quaternion)
       .multiply(scratch.spin)
@@ -487,6 +519,33 @@ export function PaperRoll({
     if (front.current) front.current.opacity = opacity;
     if (back.current) back.current.opacity = opacity;
     node.visible = opacity > 0.001;
+
+    // Report where the face of the sheet is: project the four corners of the
+    // open part and hand back their centre.
+    if (onFace) {
+      node.updateMatrixWorld();
+      const { left, right } = extent.current;
+      let cx = 0;
+      let cy = 0;
+      for (const [px, py] of [
+        [left, ASPECT / 2],
+        [right, ASPECT / 2],
+        [right, -ASPECT / 2],
+        [left, -ASPECT / 2],
+      ]) {
+        scratch.corner
+          .set(px, py, 0)
+          .applyMatrix4(node.matrixWorld)
+          .project(camera);
+        cx += ((scratch.corner.x + 1) / 2) * size.width;
+        cy += ((1 - scratch.corner.y) / 2) * size.height;
+      }
+      onFace(
+        cx / 4 - size.width / 2,
+        cy / 4 - size.height / 2,
+        live.rotate.get(),
+      );
+    }
   });
 
   if (!map) return null;

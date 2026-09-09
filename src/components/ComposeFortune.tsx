@@ -44,11 +44,14 @@ export const TOAST_FAILED = 'That did not go through. Try again in a moment.';
  */
 export function ComposeFortune({
   handle,
+  sheet,
   reducedMotion,
   onPrint,
   onDone,
 }: {
   handle: React.RefObject<PaperHandle | null>;
+  /** The field's frame, which the paper mesh keeps over its own face. */
+  sheet: React.RefObject<HTMLFormElement | null>;
   reducedMotion: boolean;
   /** What to print on the paper, once there is something to print. */
   onPrint: (text: string) => void;
@@ -181,7 +184,7 @@ export function ComposeFortune({
 
   return (
     <div className={`compose${sending ? ' is-sending' : ''}`}>
-      <form className="compose__sheet" onSubmit={send}>
+      <form ref={sheet} className="compose__sheet" onSubmit={send}>
         <textarea
           ref={field}
           className="compose__field"

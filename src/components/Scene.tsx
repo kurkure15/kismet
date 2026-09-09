@@ -621,6 +621,17 @@ export default function Scene() {
   const [composing, setComposing] = useState(false);
   const [draft, setDraft] = useState('');
   const composePaper = useRef<PaperHandle | null>(null);
+  const composeSheet = useRef<HTMLFormElement | null>(null);
+  // The paper reports its face every frame; the field is moved to it directly,
+  // never through state — that would re-render the scene sixty times a second.
+  const placeSheet = useCallback(
+    (dx: number, dy: number, rotateDeg: number) => {
+      const el = composeSheet.current;
+      if (!el) return;
+      el.style.transform = `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${rotateDeg.toFixed(2)}deg)`;
+    },
+    [],
+  );
   /** One quiet line at the bottom, for a few seconds. */
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef(0);
@@ -628,7 +639,8 @@ export default function Scene() {
   const say = useCallback((line: string | null) => {
     window.clearTimeout(toastTimer.current);
     setToast(line);
-    if (line) toastTimer.current = window.setTimeout(() => setToast(null), 4200);
+    if (line)
+      toastTimer.current = window.setTimeout(() => setToast(null), 4200);
   }, []);
 
   // Written straight to the element rather than through state: the pull
@@ -750,7 +762,9 @@ export default function Scene() {
   const respawn = useCallback(() => {
     // Tell the sheet. Country only, fire and forget — the page never waits
     // on it and never hears back; the line at the top finds out by asking.
-    void fetch('/api/eats', { method: 'POST', keepalive: true }).catch(() => {});
+    void fetch('/api/eats', { method: 'POST', keepalive: true }).catch(
+      () => {},
+    );
 
     // Shadow starts fading the moment the last shard goes, so it is gone by the
     // time the beat ends and comes back with the new cookie.
@@ -909,9 +923,19 @@ export default function Scene() {
           the two can never disagree. */}
       <PaperStage>
         {kismet.state === 'reading' && (
-          <PaperRoll handle={paper} fortune={fortune.text} from={fortune.from} />
+          <PaperRoll
+            handle={paper}
+            fortune={fortune.text}
+            from={fortune.from}
+          />
         )}
-        {composing && <PaperRoll handle={composePaper} fortune={draft} />}
+        {composing && (
+          <PaperRoll
+            handle={composePaper}
+            fortune={draft}
+            onFace={placeSheet}
+          />
+        )}
       </PaperStage>
 
       <StageChrome
@@ -937,6 +961,7 @@ export default function Scene() {
       {composing && (
         <ComposeFortune
           handle={composePaper}
+          sheet={composeSheet}
           reducedMotion={reducedMotion}
           onPrint={setDraft}
           onDone={(line) => {
