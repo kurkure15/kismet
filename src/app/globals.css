@@ -16,6 +16,16 @@
      which is 4.63vw, held there and scaled down for smaller screens. */
   --edge: clamp(18px, 4.63vw, 80px);
 
+  /*
+   * The optical lift. The cookie is rendered dead centre, but its shadow
+   * hangs below it and the whisper and the bottom line add weight under
+   * that, so at geometric centre it reads low. Everything that belongs to
+   * the toy — the cookie's canvas, the paper's, the hand-hold, the whisper —
+   * moves up by this much together. Done here rather than in the camera so
+   * the frozen render is untouched: same pixels, hung a little higher.
+   */
+  --lift: clamp(20px, 4vh, 48px);
+
   --hand: var(--font-hand), "Bradley Hand", "Segoe Script", cursive;
   --grotesk: var(--font-grotesk), "Helvetica Neue", Arial, sans-serif;
   --serif: var(--font-serif), Georgia, "Iowan Old Style", serif;
@@ -98,6 +108,7 @@ body {
 .stage__cookie {
   position: absolute;
   inset: 0;
+  transform: translateY(calc(-1 * var(--lift)));
   transition: filter 220ms ease-out;
 }
 
@@ -114,6 +125,7 @@ body {
 .stage__paper {
   position: absolute;
   inset: 0;
+  transform: translateY(calc(-1 * var(--lift)));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -230,9 +242,9 @@ body {
 .f--hint {
   left: 0;
   right: 0;
-  /* 295px below centre on the plate; held clear of the bottom line on a
-     short screen. */
-  top: min(calc(50% + 295px), calc(100% - 120px));
+  /* 295px below centre on the plate, lifted with the cookie it sits under;
+     held clear of the bottom line on a short screen. */
+  top: min(calc(50% + 295px - var(--lift)), calc(100% - 120px));
   text-align: center;
   font-family: var(--hand);
   font-weight: 400;
@@ -266,6 +278,8 @@ body {
   /* Only the hand-hold is interactive; the rest of the layer is inert. */
   pointer-events: none;
   z-index: 6;
+  /* Rides with the cookie, so the hand-hold stays over the paper. */
+  transform: translateY(calc(-1 * var(--lift)));
 }
 
 .fortune__grab {
