@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
-import { EB_Garamond, Playwrite_BE_WAL, Schibsted_Grotesk } from "next/font/google";
+import { Playwrite_BE_WAL, Schibsted_Grotesk } from "next/font/google";
 import "./globals.css";
 
 /**
- * Three voices, each with one job, per the Figma plate.
+ * Two voices. Playwrite BE WAL is the hand: the name in the corner, the
+ * "Drag to break" whisper, and the fortune itself, written onto the paper —
+ * so the slip reads as something someone wrote, not something typeset.
+ * Schibsted Grotesk is the small print, the credit.
  *
- * EB Garamond italic is the voice — the fortune printed onto the paper, and
- * the name in the corner, so the two are said by the same hand. Schibsted
- * Grotesk is the small print, the credit. Playwrite BE WAL is left with one
- * job, the "Drag to break" whisper under the cookie.
- *
- * All three come through next/font, which downloads the files at build time
- * and serves them from our own origin, so the running page makes no request
- * to Google. Playwrite has no language subsets to pick, so it takes none.
+ * Both come through next/font, which downloads the files at build time and
+ * serves them from our own origin, so the running page makes no request to
+ * Google. The hand is drawn onto a canvas texture for the paper, but it is
+ * the same self-hosted file either way. Playwrite has no language subsets to
+ * pick, so it takes none.
  */
 const hand = Playwrite_BE_WAL({
   variable: "--font-hand",
@@ -23,14 +23,6 @@ const grotesk = Schibsted_Grotesk({
   subsets: ["latin"],
   weight: ["500"],
   variable: "--font-grotesk",
-  display: "swap",
-});
-
-const serif = EB_Garamond({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  style: ["normal", "italic"],
-  variable: "--font-serif",
   display: "swap",
 });
 
@@ -68,7 +60,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${hand.variable} ${grotesk.variable} ${serif.variable}`}>
+    <html lang="en" className={`${hand.variable} ${grotesk.variable}`}>
       <body>{children}</body>
     </html>
   );

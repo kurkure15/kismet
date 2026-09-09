@@ -28,7 +28,6 @@
 
   --hand: var(--font-hand), "Bradley Hand", "Segoe Script", cursive;
   --grotesk: var(--font-grotesk), "Helvetica Neue", Arial, sans-serif;
-  --serif: var(--font-serif), Georgia, "Iowan Old Style", serif;
 }
 
 * {
@@ -37,9 +36,8 @@
   margin: 0;
 
   /* Print, not typography-with-opinions: no fi/fl knitting anywhere, and no
-     discretionary flourishes creeping into the fortune. The hand is the one
-     face that needs its ligatures — that is how it joins up — and it opts
-     back in below. */
+     discretionary flourishes anywhere. The hand is the one face that needs
+     its ligatures — that is how it joins up — and it opts back in below. */
   font-variant-ligatures: none;
   font-feature-settings: "liga" 0, "dlig" 0;
 }
@@ -61,7 +59,7 @@ body {
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--serif);
+  font-family: var(--grotesk);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -215,14 +213,14 @@ body {
   line-height: 1;
 }
 
-/* The same voice as the fortune. */
 .f--name {
   left: var(--edge);
-  font-family: var(--serif);
-  font-style: italic;
-  font-weight: 500;
+  font-family: var(--hand);
+  font-weight: 400;
   font-size: 18px;
   color: var(--ink);
+  font-variant-ligatures: normal;
+  font-feature-settings: normal;
 }
 
 .f--credit {

@@ -77,10 +77,12 @@ const TEXTURE_H = 410;
     reading as a screen. */
 const PAPER_COLOUR = '#ffffff';
 const INK_COLOUR = '#26231f';
-/** Type size on the texture: ~25px once the sheet is 640px wide on screen. */
-const TYPE_PX = 80;
-const LINE_HEIGHT = 1.5;
-const MEASURE = 0.84;
+/** Type size on the texture: ~22px once the sheet is 640px wide on screen.
+    The hand is wide and tall, so it is set a touch smaller than a serif
+    would be, with more lead. */
+const TYPE_PX = 70;
+const LINE_HEIGHT = 1.7;
+const MEASURE = 0.86;
 
 /**
  * Lays the strip out for a given amount of opening.
@@ -156,12 +158,12 @@ function layout(positions: Float32Array, unroll: number, creases: Crease[]) {
   for (let k = 0; k < positions.length; k += 3) positions[k] -= shift;
 }
 
-/** The serif next/font installed, by whatever name it gave it. */
-function serifFamily() {
+/** The hand next/font installed, by whatever name it gave it. */
+function handFamily() {
   const family = getComputedStyle(document.documentElement)
-    .getPropertyValue('--font-serif')
+    .getPropertyValue('--font-hand')
     .trim();
-  return family || 'Georgia, serif';
+  return family || '"Bradley Hand", "Segoe Script", cursive';
 }
 
 /** Every fortune is printed as something said. Typographer's quotes, not inch marks. */
@@ -255,15 +257,15 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
 }
 
 /**
- * Prints the fortune onto the stock. Drawn with the page's own serif — the
+ * Prints the fortune onto the stock. Drawn with the page's own hand — the
  * same file next/font already loaded, so no second copy of the face is
  * fetched — and word-wrapped to the slip's measure.
  */
 async function print(canvas: HTMLCanvasElement, text: string) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  // Italic: a fortune is something said to you, not a caption.
-  const font = `italic 500 ${TYPE_PX}px ${serifFamily()}`;
+  // The same hand as the name in the corner: written, not typeset.
+  const font = `400 ${TYPE_PX}px ${handFamily()}`;
   try {
     await document.fonts.load(font);
   } catch {
