@@ -5,10 +5,10 @@ import "./globals.css";
 /**
  * Three voices, each with one job, per the Figma plate.
  *
- * Playwrite BE WAL is the hand — the name in the corner and the "Drag to
- * break" whisper under the cookie. Schibsted Grotesk is the small print, the
- * credit. EB Garamond is the one thing meant to be read, the fortune, printed
- * onto the paper.
+ * EB Garamond italic is the voice — the fortune printed onto the paper, and
+ * the name in the corner, so the two are said by the same hand. Schibsted
+ * Grotesk is the small print, the credit. Playwrite BE WAL is left with one
+ * job, the "Drag to break" whisper under the cookie.
  *
  * All three come through next/font, which downloads the files at build time
  * and serves them from our own origin, so the running page makes no request
@@ -29,6 +29,7 @@ const grotesk = Schibsted_Grotesk({
 const serif = EB_Garamond({
   subsets: ["latin"],
   weight: ["400", "500"],
+  style: ["normal", "italic"],
   variable: "--font-serif",
   display: "swap",
 });

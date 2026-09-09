@@ -32,19 +32,16 @@ export function PaperStage({ children }: { children: React.ReactNode }) {
         gl={{ alpha: true, antialias: true, toneMapping: THREE.NoToneMapping }}
         style={{ pointerEvents: 'none' }}
       >
-        {/* Warm sky, cream floor: the room the sheet is read in. Three's
+        {/* White sky, pale floor: the room the sheet is read in. Three's
             physically-based lighting divides ambient terms by pi, so an
             ambient intensity has to be about three times what it reads as —
             this is "roughly 0.9". Measured against the paper: the lit side
             of the open sheet lands in the mid 240s, the shaded inside of the
             coil around 200. */}
-        <hemisphereLight args={['#fffaf0', '#d6ccb6', 2.7]} />
-        {/* Lamp, high and to the left, the same side the cookie is lit from. */}
-        <directionalLight
-          position={[-2.2, 3.2, 4]}
-          intensity={1.5}
-          color="#fff5e2"
-        />
+        <hemisphereLight args={['#ffffff', '#e4e4e2', 2.7]} />
+        {/* Lamp, high and to the left, the same side the cookie is lit from.
+            Neutral, so white paper stays white — the warmth is the cookie's. */}
+        <directionalLight position={[-2.2, 3.2, 4]} intensity={1.5} />
         {/* A whisper from the right, so the shaded side of the coil is not black. */}
         <directionalLight position={[3, -0.5, 2.5]} intensity={0.45} />
         {children}

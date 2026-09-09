@@ -215,14 +215,14 @@ body {
   line-height: 1;
 }
 
+/* The same voice as the fortune. */
 .f--name {
   left: var(--edge);
-  font-family: var(--hand);
-  font-weight: 400;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 500;
   font-size: 18px;
   color: var(--ink);
-  font-variant-ligatures: normal;
-  font-feature-settings: normal;
 }
 
 .f--credit {

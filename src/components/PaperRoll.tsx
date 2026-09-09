@@ -21,8 +21,8 @@ import type { PaperHandle } from '@/components/FortunePaper';
 
 /** Segments along the strip. Enough that four turns of coil stay round. */
 const SEGMENTS = 160;
-/** Segments across it. Only there so the normals can be smooth. */
-const ROWS = 2;
+/** Segments across it. Enough for creases to run at an angle across the sheet. */
+const ROWS = 6;
 /** Height as a fraction of length: the ~5:1 slip. */
 const ASPECT = 1 / 5;
 /** The innermost turn of the coil, and the paper's own thickness. */
@@ -32,6 +32,25 @@ const THICKNESS = 0.0055;
 const MIN_WOUND = 0.03;
 /** A gentle bow across the open part, so it is paper rather than a plane. */
 const BOW = 0.012;
+/**
+ * The crumple. A slip that has been rolled tight inside a cookie, then pulled
+ * open by hand, does not lie flat: it keeps a few creases from the rolling,
+ * the long edges lift a little, and the free end never quite settles. All of
+ * it is relief in z, in strip lengths — on a 640px sheet the deepest crease
+ * is about five pixels — and it fades out just before the coil so the paper
+ * feeds into the roll cleanly.
+ */
+const CREASES = 5;
+const CREASE_DEPTH: [number, number] = [0.004, 0.009];
+const CREASE_WIDTH: [number, number] = [0.012, 0.03];
+/** How far a crease drifts across the sheet's height, so none runs dead straight. */
+const CREASE_SKEW = 0.35;
+/** The long edges curl up toward the reader. */
+const EDGE_CURL = 0.009;
+/** The free end lifts, the way a strip does when it has been held. */
+const END_LIFT = 0.02;
+/** Relief fades out over this much of the strip before the coil. */
+const RELIEF_FADE = 0.06;
 
 /**
  * The paper faces its camera and sizes itself in screen pixels, so it always
@@ -81,7 +100,7 @@ const MEASURE = 0.84;
  * x=0: the group's origin is the paper's on-screen centre, and as it opens the
  * coil recedes while the flat part grows, rather than either end staying put.
  */
-function layout(positions: Float32Array, unroll: number) {
+function layout(positions: Float32Array, unroll: number, creases: Crease[]) {
   const wound = Math.max(MIN_WOUND, 1 - unroll);
   const flat = 1 - wound;
   const R = Math.sqrt(CORE_RADIUS * CORE_RADIUS + (THICKNESS * wound) / Math.PI);
@@ -95,9 +114,11 @@ function layout(positions: Float32Array, unroll: number) {
     const s = i / SEGMENTS;
     let x: number;
     let z: number;
+    let onSheet = false;
     if (s <= flat) {
       x = s;
       z = flat > 0 ? BOW * Math.sin((Math.PI * s) / flat) : 0;
+      onSheet = true;
     } else {
       const w = s - flat;
       const r = Math.sqrt(Math.max(0, R * R - (THICKNESS * w) / Math.PI));
@@ -107,12 +128,27 @@ function layout(positions: Float32Array, unroll: number) {
     }
     if (x < xmin) xmin = x;
     if (x > xmax) xmax = x;
+
+    // Relief on the open sheet only, fading to nothing at the coil.
+    const fade = onSheet ? Math.min(1, (flat - s) / RELIEF_FADE) : 0;
+
     for (let j = 0; j < rows; j++) {
       const k = (j * cols + i) * 3;
-      positions[k] = x;
       // Top row first, to match PlaneGeometry's vertex order and UVs.
-      positions[k + 1] = (0.5 - j / ROWS) * ASPECT;
-      positions[k + 2] = z;
+      const v = 0.5 - j / ROWS;
+      let relief = 0;
+      if (fade > 0) {
+        for (const c of creases) {
+          const d = (s - c.at + c.skew * v * ASPECT) / c.width;
+          relief += c.depth * Math.exp(-d * d);
+        }
+        relief += EDGE_CURL * (2 * v) * (2 * v);
+        relief += END_LIFT * Math.exp(-s / 0.03);
+        relief *= fade;
+      }
+      positions[k] = x;
+      positions[k + 1] = v * ASPECT;
+      positions[k + 2] = z + relief;
     }
   }
 
@@ -146,6 +182,25 @@ function seeded(seed: number) {
     state ^= state << 5;
     return (state >>> 0) / 4294967296;
   };
+}
+
+type Crease = { at: number; width: number; depth: number; skew: number };
+
+/** Where this sheet was creased. Seeded, so a given fortune always crumples the same way. */
+function makeCreases(seed: number): Crease[] {
+  const rand = seeded(seed);
+  const creases: Crease[] = [];
+  for (let i = 0; i < CREASES; i++) {
+    creases.push({
+      at: 0.06 + rand() * 0.88,
+      width: CREASE_WIDTH[0] + rand() * (CREASE_WIDTH[1] - CREASE_WIDTH[0]),
+      depth:
+        (CREASE_DEPTH[0] + rand() * (CREASE_DEPTH[1] - CREASE_DEPTH[0])) *
+        (rand() > 0.5 ? 1 : -1),
+      skew: (rand() - 0.5) * 2 * CREASE_SKEW,
+    });
+  }
+  return creases;
 }
 
 /**
@@ -207,7 +262,8 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
 async function print(canvas: HTMLCanvasElement, text: string) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
-  const font = `500 ${TYPE_PX}px ${serifFamily()}`;
+  // Italic: a fortune is something said to you, not a caption.
+  const font = `italic 500 ${TYPE_PX}px ${serifFamily()}`;
   try {
     await document.fonts.load(font);
   } catch {
@@ -261,6 +317,13 @@ export function PaperRoll({
   const geometry = useRef<THREE.PlaneGeometry>(null);
   const front = useRef<THREE.MeshStandardMaterial>(null);
   const back = useRef<THREE.MeshStandardMaterial>(null);
+
+  // Seeded from the text, like the stock, so the sheet is the same each time.
+  const creases = useMemo(() => {
+    let seed = 2166136261;
+    for (const ch of fortune) seed = Math.imul(seed ^ ch.charCodeAt(0), 16777619);
+    return makeCreases(seed ^ 0x9e3779b9);
+  }, [fortune]);
 
   const [map, setMap] = useState<THREE.CanvasTexture | null>(null);
   useEffect(() => {
@@ -319,7 +382,7 @@ export function PaperRoll({
     if (geo && unroll !== lastUnroll.current) {
       lastUnroll.current = unroll;
       const position = geo.attributes.position as THREE.BufferAttribute;
-      layout(position.array as Float32Array, unroll);
+      layout(position.array as Float32Array, unroll, creases);
       position.needsUpdate = true;
       geo.computeVertexNormals();
     }
@@ -384,7 +447,7 @@ export function PaperRoll({
         <meshStandardMaterial
           ref={back}
           attach="material-1"
-          color="#f6f6f3"
+          color="#ffffff"
           roughness={0.96}
           metalness={0}
           transparent
