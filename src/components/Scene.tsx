@@ -797,10 +797,10 @@ export default function Scene() {
     >
       <Canvas
         camera={{ position: CAMERA_POSITION, fov: FOV }}
-        gl={{ toneMappingExposure: 0.8 }}
+        gl={{ toneMappingExposure: 0.7 }}
       >
         <Suspense fallback={null}>
-          <Environment files={HDRI_URL} environmentIntensity={0.2} />
+          <Environment files={HDRI_URL} environmentIntensity={0.4} />
           <CookieStage
             drag={drag}
             reducedMotion={reducedMotion}
@@ -832,27 +832,13 @@ export default function Scene() {
           <RevealOnFirstFrame onReady={() => setReady(true)} />
         </Suspense>
 
-        {/* After hours relight. The room is dark, so the environment does far
-            less work (0.4 -> 0.2) and the key does much more (2.6 -> 5.6):
-            less flat fill, deeper modelling, and a crust that keeps its colour
-            instead of being washed toward white by a bright studio HDR.
-
-            Position and colour of the key are unchanged from the approved
-            look, and no material or albedo value is touched. */}
+        {/* The approved phase 1 key: warm, high and to the left, so the
+            crust keeps a lit side and a shaded side. Frozen — the dark-room
+            relight that briefly lived here is gone with the dark room. */}
         <directionalLight
           position={[-2.6, 3.8, 2.4]}
-          intensity={5.6}
+          intensity={2.6}
           color="#ffc078"
-        />
-
-        {/* Rim, opposite the key and behind, so the shadow side of the cookie
-            is edged in warm light and does not dissolve into the espresso
-            background. Measured: it lifts the silhouette's outer pixels from
-            134 to 149 luma while leaving the body at 169. */}
-        <directionalLight
-          position={[3.4, 1.8, -3.6]}
-          intensity={4.5}
-          color="#ffb877"
         />
 
         <ContactShadows
