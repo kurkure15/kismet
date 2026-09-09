@@ -1,9 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { animate, motion, useMotionValue, useSpring } from 'motion/react';
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+} from 'motion/react';
 import { useDrag } from '@use-gesture/react';
-import { playPaperThrow } from '@/lib/paperSound';
+import { playPaperIn, playPaperThrow } from '@/lib/paperSound';
 
 /** Enter: a spring with ease-out character, settling in roughly 450ms. */
 export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
@@ -12,23 +18,55 @@ export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
 const REST_ROTATION = -2;
 
 /**
- * How the slip sits while it is still rolled up inside the cookie: a narrow
- * curled sliver, squeezed along its length and tipped away from the viewer so
- * the curve of the roll catches the light before it flattens out.
+ * How the slip sits while it is still rolled: a narrow curled sliver, squeezed
+ * along its length and tipped away from the viewer so the curve of the roll
+ * catches the light before it flattens out. It arrives like this and stays
+ * like this until somebody pulls it open.
  *
  * `scaleX` is the whole trick — the strip opens along its length, which is
  * what unrolling looks like. The tilt is what stops it reading as a rectangle
  * being scaled up; the perspective it needs lives on `.fortune` in the CSS.
  */
-const ROLLED = { scaleX: 0.07, scaleY: 0.86, curlDeg: 56 } as const;
+const ROLLED = { scaleX: 0.075, scaleY: 0.96, curlDeg: 26 } as const;
 
 /**
- * Softer and slower than the rest of the entrance, and a beat behind it:
- * paper opens more slowly than it travels. Roughly 700ms to settle, against
- * the 450ms of the rise.
+ * Rolling a strip along its length does not shorten it, so the tube is as long
+ * as the flat slip is tall and the shading is what has to carry the roll. Two
+ * crossfades do it, both keyed off the same `unroll` value:
+ *
+ *   the cylinder shading is opaque while it is wound and gone by two-thirds
+ *   open, where the flat paper's own gentle curl takes over;
+ *
+ *   the fortune itself only arrives in the last half of the pull, because a
+ *   line of type squeezed into a 32px tube is grey mush, and because paper
+ *   that has not been opened yet should not be readable.
+ */
+const ROLL_SHADE_OUT = [0, 0.62] as const;
+const TEXT_IN = [0.5, 0.95] as const;
+
+/** Its resting tilt while still rolled, degrees. Steeper than the open slip. */
+const ROLLED_ROTATION = -8;
+
+/**
+ * How far you have to pull to get it all the way open, as a fraction of the
+ * smaller viewport edge — about 173px on a laptop, 94px on a phone. The same
+ * scale as the swipe-to-dismiss threshold, so the two gestures feel like they
+ * belong to the same hand.
+ */
+const OPEN_DISTANCE_FRACTION = 0.22;
+
+/**
+ * Let go past this much of the way and it finishes opening on its own; short
+ * of it, it rolls back up. Deliberately past halfway, so a stray nudge on the
+ * roll does not commit you.
+ */
+const OPEN_THRESHOLD = 0.55;
+
+/**
+ * The spring that finishes the pull, or takes it back. Softer than the rest of
+ * the entrance because paper opens more slowly than it travels.
  */
 const UNROLL_SPRING = { stiffness: 92, damping: 17, mass: 1 } as const;
-const UNROLL_DELAY_S = 0.12;
 
 /** How closely the slip chases the pointer. Stiff, with just enough lag to live. */
 const FOLLOW_SPRING = { stiffness: 700, damping: 42, mass: 0.9 } as const;
@@ -181,23 +219,31 @@ export function FortunePaper({
   const dragY = useMotionValue(0);
   const x = useSpring(dragX, FOLLOW_SPRING);
   const y = useSpring(dragY, FOLLOW_SPRING);
-  const rotate = useMotionValue(REST_ROTATION);
+  const rotate = useMotionValue(reducedMotion ? REST_ROTATION : ROLLED_ROTATION);
   const opacity = useMotionValue(0);
-  const scaleX = useMotionValue(reducedMotion ? 1 : ROLLED.scaleX);
-  const scaleY = useMotionValue(reducedMotion ? 1 : ROLLED.scaleY);
-  const curl = useMotionValue(reducedMotion ? 0 : ROLLED.curlDeg);
 
-  const slip = useRef<HTMLDivElement>(null);
+  /*
+   * How far open the roll is, 0 to 1. One value drives the whole thing — the
+   * width it opens to, the squeeze along its height, and the curl flattening
+   * out — so the paper cannot come apart into three unrelated animations, and
+   * a half-finished pull is always a real, coherent half-open roll.
+   */
+  const unroll = useMotionValue(reducedMotion ? 1 : 0);
+  const scaleX = useTransform(unroll, [0, 1], [ROLLED.scaleX, 1]);
+  const scaleY = useTransform(unroll, [0, 1], [ROLLED.scaleY, 1]);
+  const curl = useTransform(unroll, [0, 1], [ROLLED.curlDeg, 0]);
+  const rollShade = useTransform(unroll, [...ROLL_SHADE_OUT], [1, 0]);
+  const textIn = useTransform(unroll, [...TEXT_IN], [0, 1]);
+
+  const grab = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState(false);
   const dismissed = useRef(false);
+  /** Open for good. Until then a drag pulls the roll rather than moving it. */
+  const opened = useRef(reducedMotion);
 
-  // Enter. The slip comes up out of the pile still rolled — a narrow curled
-  // sliver — and opens along its length once it is clear of the shards, ending
-  // dead centre over the pile it came from.
-  //
-  // The unroll is deliberately a beat behind the rise and on a softer spring
-  // than the rest of the move: paper opens slower than it travels, and running
-  // both at the same rate made it read as a rectangle scaling up.
+  // Enter. The slip comes up out of the pile still rolled and stays that way:
+  // a curled sliver sitting dead centre over the pile it came from, waiting to
+  // be pulled open.
   useEffect(() => {
     if (reducedMotion) {
       animate(opacity, 1, { duration: 0.2, ease: 'easeOut' });
@@ -207,20 +253,9 @@ export function FortunePaper({
     dragY.jump(riseFrom.y);
     x.jump(riseFrom.x);
     y.jump(riseFrom.y);
-    rotate.set(-11);
     animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
     animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
-    animate(rotate, REST_ROTATION, { type: 'spring', ...ENTER_SPRING });
     animate(opacity, 1, { duration: 0.22, ease: 'easeOut' });
-
-    const unroll = {
-      type: 'spring' as const,
-      ...UNROLL_SPRING,
-      delay: UNROLL_DELAY_S,
-    };
-    animate(scaleX, 1, unroll);
-    animate(scaleY, 1, unroll);
-    animate(curl, 0, unroll);
     // Runs once, on mount, for the reveal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -237,12 +272,44 @@ export function FortunePaper({
       if (dismissed.current) return;
 
       if (reducedMotion) {
-        // No dragging to speak of — a tap sends it away. A filtered tap arrives
-        // as a single call with neither `first` nor `last` set, so it has to be
-        // caught explicitly rather than at the end of the drag.
+        // No dragging to speak of — it arrives open, and a tap sends it away.
+        // A filtered tap arrives as a single call with neither `first` nor
+        // `last` set, so it has to be caught explicitly rather than at the end
+        // of the drag.
         if (tap || last) {
           playPaperThrow();
           animate(opacity, 0, { duration: 0.2, ease: 'easeOut' }).then(dismiss);
+        }
+        return;
+      }
+
+      /*
+       * Still rolled: the drag pulls it open rather than carrying it around.
+       * Distance is taken unsigned, so it opens whichever way you pull — the
+       * roll has two ends and neither is the wrong one.
+       */
+      if (!opened.current) {
+        const reach =
+          OPEN_DISTANCE_FRACTION *
+          Math.min(window.innerWidth, window.innerHeight);
+        const pulled = Math.min(1, Math.abs(mx) / reach);
+
+        if (down) {
+          unroll.set(pulled);
+          rotate.set(ROLLED_ROTATION + (REST_ROTATION - ROLLED_ROTATION) * pulled);
+          return;
+        }
+        if (!last) return;
+
+        const spring = { type: 'spring' as const, ...UNROLL_SPRING };
+        if (pulled >= OPEN_THRESHOLD) {
+          opened.current = true;
+          playPaperIn();
+          animate(unroll, 1, spring);
+          animate(rotate, REST_ROTATION, spring);
+        } else {
+          animate(unroll, 0, spring);
+          animate(rotate, ROLLED_ROTATION, spring);
         }
         return;
       }
@@ -289,21 +356,35 @@ export function FortunePaper({
     {
       // Bound to the element rather than spread as props: motion.div has its
       // own onDrag, and the two collide.
-      target: slip,
+      target: grab,
       filterTaps: true,
       enabled: !leaving,
     },
   );
 
+  /*
+   * Two elements, not one. The outer takes the gesture and the travel; the
+   * inner takes the roll. A transform shrinks the box it is applied to, so a
+   * single element would leave a 30px-wide target to grab hold of — the outer
+   * one stays full width whatever the roll is doing.
+   */
   return (
     <div className="fortune" aria-live="polite">
-      <motion.div
-        ref={slip}
-        className="fortune__slip"
-        style={{ x, y, rotate, rotateX: curl, scaleX, scaleY, opacity }}
-        role="note"
-      >
-        <p className="fortune__text">{fortune}</p>
+      <motion.div ref={grab} className="fortune__grab" style={{ x, y }}>
+        <motion.div
+          className="fortune__slip"
+          style={{ rotate, rotateX: curl, scaleX, scaleY, opacity }}
+          role="note"
+        >
+          <motion.div
+            className="fortune__roll"
+            style={{ opacity: rollShade }}
+            aria-hidden="true"
+          />
+          <motion.p className="fortune__text" style={{ opacity: textIn }}>
+            {fortune}
+          </motion.p>
+        </motion.div>
       </motion.div>
     </div>
   );

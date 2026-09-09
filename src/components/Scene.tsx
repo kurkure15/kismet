@@ -21,7 +21,7 @@ import { useDrag } from '@use-gesture/react';
 import * as THREE from 'three';
 import { Shards, type ShardDef } from '@/components/Shards';
 import { playCrack, preloadCrackSounds } from '@/lib/crackSound';
-import { playPaperIn, preloadPaperSounds } from '@/lib/paperSound';
+import { preloadPaperSounds } from '@/lib/paperSound';
 import { playCrunch, playPop, preloadCrunchSounds } from '@/lib/crunchSound';
 import { Crumbs, type CrumbBurst } from '@/components/Crumbs';
 import { StageChrome, type Plate } from '@/components/StageChrome';
@@ -654,11 +654,14 @@ export default function Scene() {
 
   // Let the break land before the paper answers it, so the two read as one
   // chain of cause and effect rather than two separate events.
+  //
+  // The paper rustle used to fire here. It belongs to the unroll now — the
+  // sound is a sheet opening, and the paper arrives rolled and stays that way
+  // until it is pulled, so FortunePaper plays it at the moment that happens.
   useEffect(() => {
     if (kismet.state !== 'cracked') return;
     const timer = window.setTimeout(() => {
       setFortune(nextFortune());
-      playPaperIn();
       kismet.send('reveal');
     }, PAPER_DELAY_MS);
     return () => window.clearTimeout(timer);

@@ -204,18 +204,36 @@ body {
   perspective: 1400px;
 }
 
-.fortune__slip {
-  position: relative;
+/*
+ * The hand-hold. It carries the gesture and the travel but never the roll,
+ * because a transform shrinks the box it is applied to — with the unroll on
+ * this element there would be a 30px-wide sliver to take hold of. This stays
+ * full width whatever the paper is doing, with a band of clear space above and
+ * below it, so reaching for the roll always finds it.
+ */
+.fortune__grab {
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  box-sizing: border-box;
 
   /* ~5:1, clamped so it stays readable on a phone. */
   width: min(78vw, 27rem);
+  padding: 26px 0;
+
+  will-change: transform;
+}
+
+.fortune__grab:active {
+  cursor: grabbing;
+}
+
+.fortune__slip {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
   padding: 1.45rem 1.7rem;
 
   border-radius: 1px;
@@ -250,6 +268,33 @@ body {
   will-change: transform, opacity;
 }
 
+/*
+ * The wound tube, laid over the flat paper and faded out as it opens.
+ *
+ * The element is squeezed to about a fourteenth of its width while rolled, so
+ * this gradient is written across the full flat width and arrives compressed
+ * into the tube: both edges falling into shadow, a highlight just off centre
+ * where the cylinder turns toward the light, and a harder line at 73% for the
+ * outer edge of the paper where it wraps over itself.
+ */
+.fortune__roll {
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  pointer-events: none;
+  background-image: linear-gradient(
+    to right,
+    rgba(38, 35, 29, 0.44) 0%,
+    rgba(38, 35, 29, 0.14) 15%,
+    rgba(255, 255, 255, 0.88) 33%,
+    rgba(255, 255, 255, 0.3) 54%,
+    rgba(38, 35, 29, 0.1) 68%,
+    rgba(38, 35, 29, 0.34) 73%,
+    rgba(38, 35, 29, 0.14) 80%,
+    rgba(38, 35, 29, 0.48) 100%
+  );
+}
+
 /* Tooth. The same stock as the sheet it landed on, at a finer grind. */
 .fortune__slip::before {
   content: "";
@@ -260,10 +305,6 @@ body {
   background-repeat: repeat;
   background-size: 110px 110px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.fortune__slip:active {
-  cursor: grabbing;
 }
 
 .fortune__text {
