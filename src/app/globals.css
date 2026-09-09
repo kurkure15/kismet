@@ -8,7 +8,6 @@
   --paper: #f5f1e3;
   --ink: #26231d;
   --soft: #8b8574;
-  --red: #c2452f;
   --slip: #fffefa;
   --slip-text: #33302b;
 
@@ -147,8 +146,10 @@ body {
   }
 }
 
-/* --- plate 1 · idle ------------------------------------------------------ */
+/* --- the sheet at rest ---------------------------------------------------- */
 
+/* Both of these belong to the idle plate. Once the cookie breaks the sheet
+   clears itself and the toy has the page to itself. */
 .f--credit {
   bottom: 13%;
   left: var(--edge);
@@ -171,61 +172,6 @@ body {
   font-size: clamp(11px, 1.05vw, 15px);
   letter-spacing: 0.3em;
   color: var(--ink);
-}
-
-/* --- plate 2 · cracked --------------------------------------------------- */
-
-/*
- * The chapter mark waits a beat before it prints: the break should read as the
- * event and this as the caption that follows it, not the other way round.
- */
-.f--chapter {
-  top: 23%;
-  right: var(--edge);
-  color: var(--ink);
-}
-
-.f--chapter.is-on {
-  transition-delay: 250ms;
-}
-
-.f__part {
-  display: block;
-  font-family: var(--serif);
-  font-size: clamp(11px, 0.85vw, 13px);
-}
-
-.f__numeral {
-  display: block;
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: clamp(48px, 5.2vw, 76px);
-  line-height: 0.92;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
-.f__chapter-title {
-  display: block;
-  margin-top: 2.6em;
-  font-family: var(--serif);
-  font-size: clamp(11px, 0.85vw, 13px);
-  color: var(--soft);
-}
-
-/* --- narrow plates ------------------------------------------------------- */
-
-/*
- * The chapter mark and the slip share the right of the sheet. The slip widens
- * with the viewport and the chapter mark does not, so below 900px they start
- * reaching for the same column — the chapter moves up into the corner instead,
- * where the slip never goes. FortunePaper reads the same breakpoint to decide
- * whether the slip sits off centre or dead centre.
- */
-@media (max-width: 899px) {
-  .f--chapter {
-    top: 13%;
-  }
 }
 
 /* A phone is not a poster: the credit comes off, the statement loses its tail. */
@@ -254,6 +200,8 @@ body {
   /* Only the slip itself is interactive; the rest of the layer is inert. */
   pointer-events: none;
   z-index: 6;
+  /* So the slip can uncurl toward the viewer rather than just scaling flat. */
+  perspective: 1400px;
 }
 
 .fortune__slip {
@@ -268,34 +216,50 @@ body {
 
   /* ~5:1, clamped so it stays readable on a phone. */
   width: min(78vw, 27rem);
-  padding: 1.4rem 1.7rem 1.15rem;
+  padding: 1.45rem 1.7rem;
 
-  background: var(--slip);
   border-radius: 1px;
 
-  /* Paper on paper: a tight contact shadow and a soft cast one, nothing warm. */
+  /*
+   * A strip that was rolled up inside the cookie and has just been opened.
+   * It never quite forgets the curl: the two ends fall away from the light
+   * while the middle stands proudest, so the paper reads as a shallow
+   * cylinder rather than a flat white rectangle. Layered over the base tint
+   * rather than replacing it, so the colour token still owns the paper.
+   */
+  background-color: var(--slip);
+  background-image: linear-gradient(
+    to right,
+    rgba(38, 35, 29, 0.11) 0%,
+    rgba(38, 35, 29, 0.04) 4%,
+    rgba(38, 35, 29, 0.01) 11%,
+    rgba(255, 255, 255, 0.5) 30%,
+    rgba(255, 255, 255, 0.5) 70%,
+    rgba(38, 35, 29, 0.01) 89%,
+    rgba(38, 35, 29, 0.04) 96%,
+    rgba(38, 35, 29, 0.11) 100%
+  );
+
+  /* Paper on paper: a tight contact shadow, a soft cast one, and a hairline
+     of light along the top edge where the sheet lifts off the curl. */
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
     0 1px 2px rgba(38, 35, 29, 0.1),
     0 12px 30px rgba(38, 35, 29, 0.14);
 
   will-change: transform, opacity;
 }
 
-/* The crease it was folded on before it went into the cookie. */
+/* Tooth. The same stock as the sheet it landed on, at a finer grind. */
 .fortune__slip::before {
   content: "";
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  background: linear-gradient(
-    to bottom,
-    rgba(38, 35, 29, 0) 0%,
-    rgba(38, 35, 29, 0.14) 16%,
-    rgba(38, 35, 29, 0.14) 84%,
-    rgba(38, 35, 29, 0) 100%
-  );
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.05;
+  background-repeat: repeat;
+  background-size: 110px 110px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .fortune__slip:active {
@@ -319,20 +283,6 @@ body {
   line-height: 1.55;
   letter-spacing: 0.04em;
   color: var(--slip-text);
-}
-
-/* The only red on the page. */
-.fortune__lucky {
-  position: relative;
-  margin: 0.85rem 0 0;
-  text-align: center;
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 0.4em;
-  /* The tracking would otherwise hang a gap off the right-hand end. */
-  text-indent: 0.4em;
-  color: var(--red);
 }
 
 @media (prefers-reduced-motion: reduce) {

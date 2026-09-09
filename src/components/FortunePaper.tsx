@@ -1,16 +1,34 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { animate, motion, useMotionValue, useSpring } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { playPaperThrow } from '@/lib/paperSound';
-import { luckyNumbers } from '@/lib/lucky';
 
 /** Enter: a spring with ease-out character, settling in roughly 450ms. */
 export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
 
 /** Resting tilt, degrees. The slip never sits perfectly square. */
 const REST_ROTATION = -2;
+
+/**
+ * How the slip sits while it is still rolled up inside the cookie: a narrow
+ * curled sliver, squeezed along its length and tipped away from the viewer so
+ * the curve of the roll catches the light before it flattens out.
+ *
+ * `scaleX` is the whole trick — the strip opens along its length, which is
+ * what unrolling looks like. The tilt is what stops it reading as a rectangle
+ * being scaled up; the perspective it needs lives on `.fortune` in the CSS.
+ */
+const ROLLED = { scaleX: 0.07, scaleY: 0.86, curlDeg: 56 } as const;
+
+/**
+ * Softer and slower than the rest of the entrance, and a beat behind it:
+ * paper opens more slowly than it travels. Roughly 700ms to settle, against
+ * the 450ms of the rise.
+ */
+const UNROLL_SPRING = { stiffness: 92, damping: 17, mass: 1 } as const;
+const UNROLL_DELAY_S = 0.12;
 
 /** How closely the slip chases the pointer. Stiff, with just enough lag to live. */
 const FOLLOW_SPRING = { stiffness: 700, damping: 42, mass: 0.9 } as const;
@@ -86,20 +104,6 @@ export function isThrow(
 
 /** Half the slip's diagonal, so "off screen" means fully gone, not clipped. */
 const PAPER_CLEARANCE = 240;
-
-/**
- * The reading plate is not symmetrical: the boxed wordmark and the meta block
- * hold the left margin, so the slip sits centre-right at roughly 56% of the
- * width rather than dead centre. A fraction of the viewport, applied as a
- * transform on the slip itself, so nothing about the layer moves.
- *
- * Zero on a phone, where the plate drops that furniture and the slip is the
- * whole composition.
- */
-const PLATE_OFFSET_FRACTION = 0.06;
-
-/** Matches the reading plate's breakpoint in globals.css. */
-const DESKTOP_QUERY = '(min-width: 900px)';
 
 /**
  * Turns a release into an exit.
@@ -179,27 +183,23 @@ export function FortunePaper({
   const y = useSpring(dragY, FOLLOW_SPRING);
   const rotate = useMotionValue(REST_ROTATION);
   const opacity = useMotionValue(0);
-  const scale = useMotionValue(reducedMotion ? 1 : 0.6);
-
-  // Read once: the slip lives for a few seconds, and re-centring it mid-read
-  // because the window was resized would be a stranger thing to watch than the
-  // offset being a little stale.
-  const [restX] = useState(() =>
-    window.matchMedia(DESKTOP_QUERY).matches
-      ? window.innerWidth * PLATE_OFFSET_FRACTION
-      : 0,
-  );
+  const scaleX = useMotionValue(reducedMotion ? 1 : ROLLED.scaleX);
+  const scaleY = useMotionValue(reducedMotion ? 1 : ROLLED.scaleY);
+  const curl = useMotionValue(reducedMotion ? 0 : ROLLED.curlDeg);
 
   const slip = useRef<HTMLDivElement>(null);
-  const numbers = useMemo(() => luckyNumbers(fortune), [fortune]);
   const [leaving, setLeaving] = useState(false);
   const dismissed = useRef(false);
 
-  // Enter. The slip starts down in the pile and rises to the middle.
+  // Enter. The slip comes up out of the pile still rolled — a narrow curled
+  // sliver — and opens along its length once it is clear of the shards, ending
+  // dead centre over the pile it came from.
+  //
+  // The unroll is deliberately a beat behind the rise and on a softer spring
+  // than the rest of the move: paper opens slower than it travels, and running
+  // both at the same rate made it read as a rectangle scaling up.
   useEffect(() => {
     if (reducedMotion) {
-      dragX.jump(restX);
-      x.jump(restX);
       animate(opacity, 1, { duration: 0.2, ease: 'easeOut' });
       return;
     }
@@ -208,11 +208,19 @@ export function FortunePaper({
     x.jump(riseFrom.x);
     y.jump(riseFrom.y);
     rotate.set(-11);
-    animate(dragX, restX, { type: 'spring', ...ENTER_SPRING });
+    animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
     animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
-    animate(scale, 1, { type: 'spring', ...ENTER_SPRING });
     animate(rotate, REST_ROTATION, { type: 'spring', ...ENTER_SPRING });
     animate(opacity, 1, { duration: 0.22, ease: 'easeOut' });
+
+    const unroll = {
+      type: 'spring' as const,
+      ...UNROLL_SPRING,
+      delay: UNROLL_DELAY_S,
+    };
+    animate(scaleX, 1, unroll);
+    animate(scaleY, 1, unroll);
+    animate(curl, 0, unroll);
     // Runs once, on mount, for the reveal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -240,7 +248,7 @@ export function FortunePaper({
       }
 
       if (down) {
-        dragX.set(restX + mx);
+        dragX.set(mx);
         dragY.set(my);
         // Lean into the direction of travel, a little more the further it goes.
         rotate.set(REST_ROTATION + Math.max(-14, Math.min(14, mx * 0.045)));
@@ -251,8 +259,8 @@ export function FortunePaper({
 
       const viewportMin = Math.min(window.innerWidth, window.innerHeight);
       if (!isThrow(vx, vy, mx, my, viewportMin)) {
-        // Not a throw. Settle back to where it was printed.
-        animate(dragX, restX, { type: 'spring', ...ENTER_SPRING });
+        // Not a throw. Settle back to the middle.
+        animate(dragX, 0, { type: 'spring', ...ENTER_SPRING });
         animate(dragY, 0, { type: 'spring', ...ENTER_SPRING });
         animate(rotate, REST_ROTATION, { type: 'spring', ...ENTER_SPRING });
         return;
@@ -268,7 +276,7 @@ export function FortunePaper({
       setLeaving(true);
 
       const ease = [0.16, 0.7, 0.35, 1] as const;
-      animate(dragX, restX + targetX, { duration: duration / 1000, ease });
+      animate(dragX, targetX, { duration: duration / 1000, ease });
       animate(dragY, targetY, { duration: duration / 1000, ease });
       animate(rotate, rotate.get() + spin, { duration: duration / 1000, ease });
       // Fade only once it is near the edge, so it reads as leaving, not dissolving.
@@ -292,11 +300,10 @@ export function FortunePaper({
       <motion.div
         ref={slip}
         className="fortune__slip"
-        style={{ x, y, rotate, scale, opacity }}
+        style={{ x, y, rotate, rotateX: curl, scaleX, scaleY, opacity }}
         role="note"
       >
         <p className="fortune__text">{fortune}</p>
-        <p className="fortune__lucky">{numbers.join(' ')}</p>
       </motion.div>
     </div>
   );
