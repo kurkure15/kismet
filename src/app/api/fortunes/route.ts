@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
 import { cleanFortune } from '@/lib/inbox';
-import { countryOf, sheetConfigured, submitFortune } from '@/lib/sheet';
+import {
+  approvedFortunes,
+  countryOf,
+  sheetConfigured,
+  submitFortune,
+} from '@/lib/sheet';
+
+/** The fortunes ticked in the sheet, for the page to add to its pool. */
+export async function GET() {
+  if (!sheetConfigured()) {
+    return NextResponse.json({ fortunes: [] }, { status: 503 });
+  }
+  return NextResponse.json(
+    { fortunes: await approvedFortunes() },
+    { headers: { 'cache-control': 'public, s-maxage=300, stale-while-revalidate=600' } },
+  );
+}
 
 /** A visitor's fortune, on its way to the inbox tab of the sheet. */
 export async function POST(request: Request) {

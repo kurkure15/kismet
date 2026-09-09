@@ -56,9 +56,10 @@ export const FORTUNES = [
 export type Fortune = { text: string; from?: string };
 
 /**
- * Sent in. Add a line per approved fortune from the Inbox tab, with its
- * two-letter country from the Country column — or leave `from` off if the
- * column was blank. The paper prints "sent from Japan" under it.
+ * Sent in and ticked. The page asks the sheet for its approved fortunes once
+ * on load and adds them here; this list exists for anything you would rather
+ * keep in the code than in the sheet. The paper prints "sent from Japan"
+ * under a fortune that has a `from`.
  */
 export const SENT_IN: Fortune[] = [];
 
@@ -66,6 +67,25 @@ const POOL: Fortune[] = [
   ...FORTUNES.map((text) => ({ text })),
   ...SENT_IN,
 ];
+
+/**
+ * Adds fortunes to the pool — the ticked rows from the sheet. Duplicates by
+ * text are skipped, and the bag is emptied so the new ones can be drawn this
+ * visit rather than next.
+ */
+export function addFortunes(more: Fortune[]) {
+  const known = new Set(POOL.map((f) => f.text));
+  let added = 0;
+  for (const f of more) {
+    const text = f.text.trim();
+    if (!text || known.has(text)) continue;
+    known.add(text);
+    POOL.push({ text, from: f.from || undefined });
+    added += 1;
+  }
+  if (added > 0) bag = [];
+  return added;
+}
 
 /**
  * Shuffle bag: every fortune is seen once before any repeats. Lives in module

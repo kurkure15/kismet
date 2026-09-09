@@ -30,7 +30,7 @@ import { PaperRoll } from '@/components/PaperRoll';
 import { PaperStage } from '@/components/PaperStage';
 import { ComposeFortune } from '@/components/ComposeFortune';
 import { useKismet } from '@/lib/appState';
-import { nextFortune, type Fortune } from '@/lib/fortunes';
+import { addFortunes, nextFortune, type Fortune } from '@/lib/fortunes';
 import {
   CRACK,
   EAT,
@@ -616,6 +616,21 @@ export default function Scene() {
   const paper = useRef<PaperHandle | null>(null);
   /** The cookie's canvas, which goes soft as the fortune is pulled open. */
   const cookieCanvas = useRef<HTMLDivElement>(null);
+
+  // The fortunes ticked in the sheet join the pool. Asked once, on load; if
+  // the sheet is not set up the route says so and the house forty carry on.
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/fortunes')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { fortunes?: Fortune[] } | null) => {
+        if (!cancelled && data?.fortunes?.length) addFortunes(data.fortunes);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /** Writing a fortune for someone: a second sheet, and the cookie waits. */
   const [composing, setComposing] = useState(false);

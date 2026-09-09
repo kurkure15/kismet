@@ -3,6 +3,9 @@
  * Apps Script web app bound to it. Two tabs — Inbox, where visitors' fortunes
  * land for reading, and Eats, a log of cookies eaten by country.
  *
+ * Approval is a checkbox in the Inbox tab; ticked rows are served back to
+ * the site and go into the pool.
+ *
  * Talking to it is a fetch with a shared token, nothing more. Both env vars
  * come from the deployment; without them every call reports itself
  * unconfigured and the page carries on without the feature.
@@ -11,6 +14,7 @@
  */
 
 export type Eat = { at: number; country: string };
+export type SentIn = { text: string; from: string };
 
 function config() {
   const url = process.env.FORTUNE_SHEET_URL;
@@ -80,6 +84,36 @@ export async function recentEats(): Promise<Eat[]> {
           typeof (e as Eat).country === 'string',
       )
       .slice(0, 8);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The fortunes that have been ticked in the Inbox. Cached for five minutes
+ * on the server: a tick reaches the next visitor within about that long.
+ */
+export async function approvedFortunes(): Promise<SentIn[]> {
+  const c = config();
+  if (!c) return [];
+  try {
+    const url = new URL(c.url);
+    url.searchParams.set('token', c.token);
+    url.searchParams.set('action', 'approved');
+    const res = await fetch(url, { next: { revalidate: 300 } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as { fortunes?: unknown };
+    if (!Array.isArray(data.fortunes)) return [];
+    return data.fortunes
+      .filter(
+        (f): f is SentIn =>
+          typeof f === 'object' &&
+          f !== null &&
+          typeof (f as SentIn).text === 'string' &&
+          typeof (f as SentIn).from === 'string',
+      )
+      .map((f) => ({ text: f.text.trim().slice(0, 160), from: f.from.trim() }))
+      .filter((f) => f.text.length > 0);
   } catch {
     return [];
   }
