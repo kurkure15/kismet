@@ -2,7 +2,7 @@
  * Forty fortunes. The register is the good kind of fortune cookie: warm,
  * aphoristic, occasionally sly. Nothing borrowed from famous people, no
  * astrology, nothing that could land as a dig. Typographic apostrophes,
- * because these are set in a serif and it shows.
+ * because they are written out by hand and it shows.
  */
 export const FORTUNES = [
   'The door you keep checking is already unlocked.',
@@ -48,14 +48,34 @@ export const FORTUNES = [
 ] as const;
 
 /**
+ * A fortune, and where it came from. The forty above are the house's; the
+ * ones below were written by visitors, read in the sheet's inbox, and copied
+ * here by hand with the country they were sent from. That is the whole
+ * moderation process, and it is deliberate.
+ */
+export type Fortune = { text: string; from?: string };
+
+/**
+ * Sent in. Add a line per approved fortune from the Inbox tab, with its
+ * two-letter country from the Country column — or leave `from` off if the
+ * column was blank. The paper prints "sent from Japan" under it.
+ */
+export const SENT_IN: Fortune[] = [];
+
+const POOL: Fortune[] = [
+  ...FORTUNES.map((text) => ({ text })),
+  ...SENT_IN,
+];
+
+/**
  * Shuffle bag: every fortune is seen once before any repeats. Lives in module
  * memory only — deliberately not persisted, so a fresh visit starts fresh.
  */
-let bag: string[] = [];
-let lastDrawn: string | null = null;
+let bag: Fortune[] = [];
+let lastDrawn: Fortune | null = null;
 
 function refill() {
-  bag = [...FORTUNES];
+  bag = [...POOL];
   for (let i = bag.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [bag[i], bag[j]] = [bag[j], bag[i]];
@@ -67,8 +87,8 @@ function refill() {
   }
 }
 
-export function nextFortune(): string {
+export function nextFortune(): Fortune {
   if (bag.length === 0) refill();
-  lastDrawn = bag.pop() ?? FORTUNES[0];
+  lastDrawn = bag.pop() ?? POOL[0];
   return lastDrawn;
 }

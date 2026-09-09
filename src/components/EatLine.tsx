@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { placeName } from '@/lib/place';
 
 type Eat = { at: number; country: string };
 
@@ -8,22 +9,6 @@ type Eat = { at: number; country: string };
 const POLL_MS = 12_000;
 /** Older than this and it is not "just" any more; the line goes quiet. */
 const FRESH_MS = 15 * 60_000;
-
-const REGION =
-  typeof Intl !== 'undefined' && 'DisplayNames' in Intl
-    ? new Intl.DisplayNames(['en'], { type: 'region' })
-    : null;
-
-/** "JP" -> "Japan". Falls back to nothing if the code is unknown here. */
-function placeName(code: string) {
-  if (!code) return '';
-  try {
-    const name = REGION?.of(code);
-    return name && name !== code ? name : '';
-  } catch {
-    return '';
-  }
-}
 
 function ago(at: number, now: number) {
   const minutes = Math.round((now - at) / 60_000);

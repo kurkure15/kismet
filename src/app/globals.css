@@ -283,13 +283,15 @@ body {
 }
 
 /*
- * The one control on the sheet: a + in the top-right corner, two hairlines.
- * It opens a blank sheet to write on, and turns a quarter to become the ×
- * that puts it away. The plate is inert by rule; this opts back in.
+ * The one control on the sheet: a + at the bottom centre, two hairlines,
+ * between the name and the credit. It opens a blank sheet to write on, and
+ * turns a quarter to become the × that puts it away. The plate is inert by
+ * rule; this opts back in.
  */
 .f--plus {
-  top: calc(var(--edge) - 10px);
-  right: calc(var(--edge) - 10px);
+  bottom: 58px;
+  left: 50%;
+  margin-left: -20px;
   width: 40px;
   height: 40px;
   padding: 0;
@@ -380,6 +382,7 @@ body {
 .compose__field {
   flex: 1;
   min-width: 0;
+  max-height: 100%;
   border: 0;
   padding: 0;
   background: transparent;
@@ -389,8 +392,8 @@ body {
   text-align: center;
   font-family: var(--hand);
   font-weight: 400;
-  font-size: 22px;
-  line-height: 1.7;
+  font-size: 20px;
+  line-height: 1.55;
   color: var(--ink);
   caret-color: var(--ink);
   font-variant-ligatures: normal;
@@ -451,8 +454,8 @@ body {
   }
 
   .compose__field {
-    font-size: 18px;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.5;
   }
 }
 

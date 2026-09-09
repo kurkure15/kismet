@@ -29,11 +29,14 @@ function f(modifier: string, on: boolean) {
  */
 export function StageChrome({
   plate,
+  eaten,
   composing,
   toast,
   onCompose,
 }: {
   plate: Plate;
+  /** Cookies finished so far. The + waits for the first one. */
+  eaten: number;
   /** The sheet is out for writing on; the + reads as a ×. */
   composing: boolean;
   /** One quiet line, or nothing. */
@@ -93,11 +96,13 @@ export function StageChrome({
 
         <p className={f('hint', idle && !hintGone)}>Drag to break</p>
 
-        {/* Write one for someone. The one control on the sheet; it turns
-            into the way out once the paper is open. */}
+        {/* Write one for someone. The one control on the sheet, and it only
+            appears once you have been through a cookie yourself — you cannot
+            write one until you have read one. It turns into the way out once
+            the paper is open. */}
         <button
           type="button"
-          className={`${f('plus', idle)}${composing ? ' is-open' : ''}`}
+          className={`${f('plus', idle && (eaten > 0 || composing))}${composing ? ' is-open' : ''}`}
           aria-label={composing ? 'Close' : 'Write a fortune for someone'}
           onClick={onCompose}
         />

@@ -30,7 +30,7 @@ import { PaperRoll } from '@/components/PaperRoll';
 import { PaperStage } from '@/components/PaperStage';
 import { ComposeFortune } from '@/components/ComposeFortune';
 import { useKismet } from '@/lib/appState';
-import { nextFortune } from '@/lib/fortunes';
+import { nextFortune, type Fortune } from '@/lib/fortunes';
 import {
   CRACK,
   EAT,
@@ -607,7 +607,7 @@ export default function Scene() {
   const [settled, setSettled] = useState(false);
   const reducedMotion = usePrefersReducedMotion();
   const kismet = useKismet();
-  const [fortune, setFortune] = useState('');
+  const [fortune, setFortune] = useState<Fortune>({ text: '' });
   const [riseFrom, setRiseFrom] = useState({ x: 0, y: 0 });
   /** Bumped per cookie, so per-cookie components remount clean. */
   const [generation, setGeneration] = useState(0);
@@ -767,7 +767,7 @@ export default function Scene() {
       drag.current.wobbleAt = null;
       setSettled(false);
       setPileGone(false);
-      setFortune('');
+      setFortune({ text: '' });
       setGeneration((g) => g + 1);
       kismet.send('reset');
       playPop();
@@ -909,13 +909,14 @@ export default function Scene() {
           the two can never disagree. */}
       <PaperStage>
         {kismet.state === 'reading' && (
-          <PaperRoll handle={paper} fortune={fortune} />
+          <PaperRoll handle={paper} fortune={fortune.text} from={fortune.from} />
         )}
         {composing && <PaperRoll handle={composePaper} fortune={draft} />}
       </PaperStage>
 
       <StageChrome
         plate={plate}
+        eaten={generation}
         composing={composing}
         toast={toast}
         onCompose={() => {
@@ -948,7 +949,8 @@ export default function Scene() {
 
       {kismet.state === 'reading' && (
         <FortunePaper
-          fortune={fortune}
+          fortune={fortune.text}
+          from={fortune.from}
           riseFrom={riseFrom}
           reducedMotion={reducedMotion}
           handle={paper}

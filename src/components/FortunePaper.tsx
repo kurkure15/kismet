@@ -12,6 +12,7 @@ import {
 import { useDrag } from '@use-gesture/react';
 import { playPaperIn, playPaperThrow } from '@/lib/paperSound';
 import { quoted } from '@/components/PaperRoll';
+import { placeName } from '@/lib/place';
 
 /** Enter: a spring with ease-out character, settling in roughly 450ms. */
 export const ENTER_SPRING = { stiffness: 125, damping: 18, mass: 1 } as const;
@@ -204,6 +205,7 @@ export type PaperHandle = {
  */
 export function FortunePaper({
   fortune,
+  from,
   riseFrom,
   reducedMotion,
   handle,
@@ -211,6 +213,8 @@ export function FortunePaper({
   onDismiss,
 }: {
   fortune: string;
+  /** Two-letter country a visitor's fortune was sent from, if it was. */
+  from?: string;
   /** Screen offset of the pile from viewport centre, in px. */
   riseFrom: { x: number; y: number };
   reducedMotion: boolean;
@@ -386,7 +390,10 @@ export function FortunePaper({
         style={{ x, y }}
         role="note"
       >
-        <p className="sr-only">{quoted(fortune)}</p>
+        <p className="sr-only">
+          {quoted(fortune)}
+          {placeName(from) ? ` Sent from ${placeName(from)}.` : ''}
+        </p>
       </motion.div>
     </div>
   );

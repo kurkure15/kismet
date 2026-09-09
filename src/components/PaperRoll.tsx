@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { PaperHandle } from '@/components/FortunePaper';
+import { placeName } from '@/lib/place';
 
 /*
  * The fortune, as a real piece of paper.
@@ -81,16 +82,26 @@ const SHEEN = { roughness: 0.55, clearcoat: 0.22, clearcoatRoughness: 0.3 };
 /** The texture the fortune is printed on. Same 5:1 as the paper. */
 const TEXTURE_W = 2048;
 const TEXTURE_H = 410;
-/** The stock and the ink. White — the tooth below is what keeps it from
-    reading as a screen. */
-const PAPER_COLOUR = '#ffffff';
+/** The stock and the ink. Egg white, not white: on a white page a white
+    sheet has no edges, and the tooth alone could not draw them. */
+const PAPER_COLOUR = '#f7f1e1';
 const INK_COLOUR = '#26231f';
-/** Type size on the texture: ~22px once the sheet is 640px wide on screen.
-    The hand is wide and tall, so it is set a touch smaller than a serif
-    would be, with more lead. */
+/** The small line under a visitor's fortune: where it was sent from. */
+const FROM_COLOUR = 'rgba(38, 35, 31, 0.45)';
+/**
+ * Type size on the texture: ~22px once the sheet is 640px wide on screen.
+ * The hand is wide and tall, so it is set a touch smaller than a serif would
+ * be, with more lead. A fortune that will not fit in two lines at that size
+ * is set smaller, in three, rather than cut off.
+ */
 const TYPE_PX = 70;
 const LINE_HEIGHT = 1.7;
+const SMALL_TYPE_PX = 56;
+const SMALL_LINE_HEIGHT = 1.55;
+const MAX_LINES = 3;
 const MEASURE = 0.86;
+/** The provenance line, in the same hand, small. */
+const FROM_PX = 34;
 
 /**
  * Lays the strip out for a given amount of opening.
@@ -269,11 +280,29 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
  * same file next/font already loaded, so no second copy of the face is
  * fetched — and word-wrapped to the slip's measure.
  */
-async function print(canvas: HTMLCanvasElement, text: string) {
+/** Greedy word wrap to a measure, in the current font. */
+function wrap(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  const lines: string[] = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function print(canvas: HTMLCanvasElement, text: string, from?: string) {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   // The same hand as the name in the corner: written, not typeset.
-  const font = `400 ${TYPE_PX}px ${handFamily()}`;
+  const family = handFamily();
+  const font = `400 ${TYPE_PX}px ${family}`;
   try {
     await document.fonts.load(font);
   } catch {
@@ -289,38 +318,57 @@ async function print(canvas: HTMLCanvasElement, text: string) {
   if (!text) return;
 
   ctx.fillStyle = INK_COLOUR;
-  ctx.font = font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  if ('letterSpacing' in ctx) ctx.letterSpacing = `${TYPE_PX * 0.015}px`;
-
   const maxWidth = canvas.width * MEASURE;
-  const lines: string[] = [];
-  let line = '';
-  for (const word of quoted(text).split(' ')) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (line && ctx.measureText(candidate).width > maxWidth) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = candidate;
-    }
-  }
-  if (line) lines.push(line);
 
-  const step = TYPE_PX * LINE_HEIGHT;
-  const top = canvas.height / 2 - ((lines.length - 1) * step) / 2;
+  // Two lines at the full size if it fits; otherwise smaller, up to three.
+  let size = TYPE_PX;
+  let leading = LINE_HEIGHT;
+  ctx.font = font;
+  if ('letterSpacing' in ctx) ctx.letterSpacing = `${size * 0.015}px`;
+  let lines = wrap(ctx, quoted(text), maxWidth);
+  if (lines.length > 2) {
+    size = SMALL_TYPE_PX;
+    leading = SMALL_LINE_HEIGHT;
+    ctx.font = `400 ${size}px ${family}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${size * 0.015}px`;
+    lines = wrap(ctx, quoted(text), maxWidth).slice(0, MAX_LINES);
+  }
+
+  // The provenance line takes a little room at the foot; the fortune sits a
+  // touch higher to leave it.
+  const place = placeName(from);
+  const step = size * leading;
+  const block = (lines.length - 1) * step;
+  const middle = canvas.height / 2 - (place ? FROM_PX * 0.55 : 0);
+  const top = middle - block / 2;
   lines.forEach((l, i) => {
     ctx.fillText(l, canvas.width / 2, top + i * step);
   });
+
+  if (place) {
+    ctx.font = `400 ${FROM_PX}px ${family}`;
+    if ('letterSpacing' in ctx) ctx.letterSpacing = `${FROM_PX * 0.02}px`;
+    ctx.fillStyle = FROM_COLOUR;
+    ctx.textAlign = 'right';
+    ctx.fillText(
+      `sent from ${place}`,
+      canvas.width * (0.5 + MEASURE / 2),
+      canvas.height - FROM_PX * 1.15,
+    );
+  }
 }
 
 export function PaperRoll({
   handle,
   fortune,
+  from,
 }: {
   handle: React.RefObject<PaperHandle | null>;
   fortune: string;
+  /** Two-letter country a visitor's fortune was sent from, if it was. */
+  from?: string;
 }) {
   const camera = useThree((state) => state.camera as THREE.PerspectiveCamera);
   const size = useThree((state) => state.size);
@@ -348,7 +396,7 @@ export function PaperRoll({
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = gl.capabilities.getMaxAnisotropy();
-    print(canvas, fortune).then(() => {
+    print(canvas, fortune, from).then(() => {
       if (cancelled) return;
       texture.needsUpdate = true;
       setMap(texture);
@@ -357,7 +405,7 @@ export function PaperRoll({
       cancelled = true;
       texture.dispose();
     };
-  }, [fortune, gl]);
+  }, [fortune, from, gl]);
 
   // One mesh, one geometry, two materials over the same triangles: the printed
   // side faces out of the front, the plain side out of the back, so the back
@@ -467,7 +515,7 @@ export function PaperRoll({
         <meshPhysicalMaterial
           ref={back}
           attach="material-1"
-          color="#ffffff"
+          color="#f3ecdb"
           roughness={SHEEN.roughness}
           metalness={0}
           clearcoat={SHEEN.clearcoat}

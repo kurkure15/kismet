@@ -71,6 +71,15 @@ export function ComposeFortune({
 
   const field = useRef<HTMLTextAreaElement>(null);
   const [text, setText] = useState('');
+
+  // The field grows to what is written, up to the sheet's height, so a long
+  // fortune is never cut off at the second line.
+  useEffect(() => {
+    const el = field.current;
+    if (!el) return;
+    el.style.height = '0px';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [text]);
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
   const finished = useRef(false);
@@ -178,7 +187,7 @@ export function ComposeFortune({
           className="compose__field"
           value={text}
           maxLength={MAX_LENGTH}
-          rows={2}
+          rows={1}
           placeholder="Write a good fortune for someone"
           aria-label="Write a good fortune for someone"
           autoComplete="off"
