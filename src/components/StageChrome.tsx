@@ -72,7 +72,10 @@ export function StageChrome({ plate }: { plate: Plate }) {
         {/* The bottom line: the name in the hand, the credit in small print. */}
         <p className={f('name', idle)}>Fortune Teller</p>
         <p className={f('credit', idle)}>
-          Made by <u>Ankur</u>
+          Made by{' '}
+          <a href="https://x.com/ankurchirps" target="_blank" rel="noreferrer">
+            Ankur
+          </a>
         </p>
       </div>
     </>

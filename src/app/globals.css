@@ -231,10 +231,19 @@ body {
   color: var(--soft);
 }
 
-.f--credit u {
+/* The one thing on the sheet you can click. The plate is inert by rule, so
+   the link opts back in — and only the link, so a drag that starts a pixel
+   off it still reaches the cookie. */
+.f--credit a {
+  pointer-events: auto;
+  color: inherit;
   text-decoration: underline;
   text-decoration-skip-ink: none;
   text-underline-offset: 0.12em;
+}
+
+.f--credit a:hover {
+  color: var(--ink);
 }
 
 .f--hint {
