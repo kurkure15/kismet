@@ -9,6 +9,8 @@ type Eat = { at: number; country: string };
 const POLL_MS = 12_000;
 /** Older than this and it is not "just" any more; the line goes quiet. */
 const FRESH_MS = 15 * 60_000;
+/** How long the line stays once it has appeared. A remark, not a banner. */
+const SHOW_MS = 4000;
 
 function ago(at: number, now: number) {
   const minutes = Math.round((now - at) / 60_000);
@@ -25,6 +27,15 @@ function ago(at: number, now: number) {
 export function EatLine({ className }: { className: string }) {
   const [latest, setLatest] = useState<Eat | null>(null);
   const [now, setNow] = useState(0);
+  const [shown, setShown] = useState(false);
+
+  // Each new eat gets four seconds on the sheet, then the line goes quiet
+  // until the next one.
+  useEffect(() => {
+    if (!latest) return;
+    const timer = window.setTimeout(() => setShown(false), SHOW_MS);
+    return () => window.clearTimeout(timer);
+  }, [latest]);
 
   useEffect(() => {
     let timer = 0;
@@ -37,8 +48,12 @@ export function EatLine({ className }: { className: string }) {
         if (!res.ok) return;
         const data = (await res.json()) as { eats?: Eat[] };
         if (stopped) return;
-        setLatest(data.eats?.[0] ?? null);
+        const next = data.eats?.[0] ?? null;
         setNow(Date.now());
+        setLatest((prev) => {
+          if (next && next.at !== prev?.at) setShown(true);
+          return next;
+        });
       } catch {
         // The line stays as it was. It is not important enough to complain.
       }
@@ -69,7 +84,7 @@ export function EatLine({ className }: { className: string }) {
     };
   }, []);
 
-  const fresh = latest && now - latest.at < FRESH_MS;
+  const fresh = shown && latest && now - latest.at < FRESH_MS;
   const place = latest ? placeName(latest.country) : '';
 
   return (
