@@ -9,7 +9,6 @@
   --ink: #26231d;
   --soft: #8b8574;
   --red: #c2452f;
-  --chip-blue: #2e71d2;
   --chip-green: #3fa55b;
   --slip: #fffefa;
   --slip-text: #33302b;
@@ -196,15 +195,6 @@ body {
   letter-spacing: 0.14em;
   line-height: 1;
   color: var(--ink);
-}
-
-/* The one colour chip. Nothing else on the sheet is blue. */
-.f--chip {
-  right: var(--edge);
-  bottom: clamp(58px, 15%, 132px);
-  width: 44px;
-  height: 26px;
-  background: var(--chip-blue);
 }
 
 .f--hint {
@@ -396,12 +386,6 @@ body {
   .f--wordmark {
     bottom: 9%;
     font-size: 22px;
-  }
-
-  .f--chip {
-    bottom: 4.5%;
-    width: 13vw;
-    height: 12px;
   }
 
   .f--bar {

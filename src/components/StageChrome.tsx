@@ -62,7 +62,6 @@ export function StageChrome({
 
   const idle = plate === 'idle';
   const broken = plate === 'cracked' || plate === 'reading';
-  const after = plate === 'eating' || plate === 'eaten';
 
   // The pile empties before `eaten` is bumped for the fresh cookie, so during
   // the beat this plate is printed the finished count is one ahead of it.
@@ -100,8 +99,6 @@ export function StageChrome({
         <p className={f('wordmark', idle)}>KISMET</p>
 
         <p className={f('hint', idle && !hintGone)}>d r a g</p>
-
-        <div className={f('chip', idle || after)} aria-hidden="true" />
 
         {/* --- plate 2 · cracked --- */}
         <div className={f('bar', broken)} aria-hidden="true" />
