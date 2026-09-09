@@ -164,6 +164,16 @@ body {
 }
 
 /*
+ * While a sheet is out for writing, the rest of the furniture goes out of
+ * focus with the cookie behind it — the same blur, so the page reads as one
+ * thing receding — and the × stays sharp, since it is the way back.
+ */
+.plate.is-writing .f:not(.f--plus) {
+  filter: blur(7px);
+  opacity: 0.4;
+}
+
+/*
  * One piece of furniture. Off-plate items are pulled out of the accessibility
  * tree as well as hidden, so a screen reader never reads a plate that is not
  * on the sheet. Visibility flips only after the fade has finished.
@@ -175,7 +185,8 @@ body {
   visibility: hidden;
   transition:
     opacity 200ms ease-out,
-    visibility 0s linear 200ms;
+    visibility 0s linear 200ms,
+    filter 220ms ease-out;
 }
 
 .f.is-on {
@@ -183,7 +194,8 @@ body {
   visibility: visible;
   transition:
     opacity 200ms ease-out,
-    visibility 0s;
+    visibility 0s,
+    filter 220ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -370,7 +382,10 @@ body {
   display: flex;
   align-items: center;
   padding: 0 64px 0 40px;
-  transform: rotate(-2deg);
+  /* The paper below leans 7 degrees toward the viewer, which puts its face a
+     little lower on screen than a flat rectangle at the same spot; the field
+     follows it down so the caret sits on the sheet, not above it. */
+  transform: rotate(-2deg) translateY(17%);
   transition: opacity 180ms ease-out;
 }
 

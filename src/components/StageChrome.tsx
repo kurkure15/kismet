@@ -89,7 +89,9 @@ export function StageChrome({
     <>
       <div className="grain" aria-hidden="true" />
 
-      <div className={`plate${quiet ? ' is-quiet' : ''}`}>
+      <div
+        className={`plate${quiet ? ' is-quiet' : ''}${composing ? ' is-writing' : ''}`}
+      >
         {/* Speaks only when there is something recent to say; it turns its
             own visibility on, since the plate cannot know. */}
         <EatLine className={idle && !toast ? 'f f--eat' : 'f f--eat is-off'} />
