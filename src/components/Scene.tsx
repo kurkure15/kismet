@@ -52,6 +52,10 @@ type DragState = {
 
 const MODEL_URL = '/models/cookie-fractured.glb';
 
+/** How far out of focus the cookie goes behind a fully opened fortune. */
+const SOFT_BLUR_PX = 7;
+const SOFT_DIM = 0.02;
+
 /**
  * The exact file <Environment preset="studio"> pulls from raw.githack.com,
  * vendored so the approved lighting no longer depends on a third-party CDN.
@@ -609,8 +613,20 @@ export default function Scene() {
   const crumbs = useRef<CrumbBurst | null>(null);
   /** The live position and openness of the fortune, published by its gestures. */
   const paper = useRef<PaperHandle | null>(null);
-  /** The fortune has been pulled fully open, so the toy goes soft behind it. */
-  const [paperOpen, setPaperOpen] = useState(false);
+  /** The cookie's canvas, which goes soft as the fortune is pulled open. */
+  const cookieCanvas = useRef<HTMLDivElement>(null);
+
+  // Written straight to the element rather than through state: the pull
+  // reports every frame, and re-rendering the scene for each would be silly.
+  // Cleared when the paper goes, so the toy comes back sharp.
+  const soften = useCallback((progress: number) => {
+    const node = cookieCanvas.current;
+    if (!node) return;
+    node.style.filter =
+      progress > 0.001
+        ? `blur(${(SOFT_BLUR_PX * progress).toFixed(2)}px) brightness(${(1 - SOFT_DIM * progress).toFixed(3)})`
+        : '';
+  }, []);
   const firstBiteDone = useRef(false);
   const shadowGroup = useRef<THREE.Group>(null);
   /** The pile is gone, so its shadow should be too. */
@@ -811,14 +827,12 @@ export default function Scene() {
           ? 'eating'
           : 'idle';
 
-  const soft = paperOpen && kismet.state === 'reading';
-
   return (
     <div
       className={ready ? 'stage__canvas is-ready' : 'stage__canvas'}
       {...bind()}
     >
-      <div className={soft ? 'stage__cookie is-soft' : 'stage__cookie'}>
+      <div ref={cookieCanvas} className="stage__cookie">
         <Canvas
           camera={{ position: CAMERA_POSITION, fov: FOV }}
           gl={{ toneMappingExposure: 0.7 }}
@@ -888,9 +902,9 @@ export default function Scene() {
           riseFrom={riseFrom}
           reducedMotion={reducedMotion}
           handle={paper}
-          onOpen={() => setPaperOpen(true)}
+          onUnroll={soften}
           onDismiss={() => {
-            setPaperOpen(false);
+            soften(0);
             kismet.send('dismiss');
           }}
         />

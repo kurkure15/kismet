@@ -5,6 +5,7 @@ import {
   animate,
   motion,
   useMotionValue,
+  useMotionValueEvent,
   useSpring,
   type MotionValue,
 } from 'motion/react';
@@ -206,7 +207,7 @@ export function FortunePaper({
   riseFrom,
   reducedMotion,
   handle,
-  onOpen,
+  onUnroll,
   onDismiss,
 }: {
   fortune: string;
@@ -214,8 +215,8 @@ export function FortunePaper({
   riseFrom: { x: number; y: number };
   reducedMotion: boolean;
   handle: React.RefObject<PaperHandle | null>;
-  /** The roll has been pulled past the point of no return and is opening. */
-  onOpen: () => void;
+  /** How far open the roll is, 0..1, every time it changes. */
+  onUnroll: (progress: number) => void;
   onDismiss: () => void;
 }) {
   const dragX = useMotionValue(0);
@@ -241,6 +242,10 @@ export function FortunePaper({
     [unroll, x, y, rotate, opacity],
   );
 
+  // Whoever is listening — the cookie going soft behind the paper — hears
+  // every step of the pull, not just the moment it commits.
+  useMotionValueEvent(unroll, 'change', onUnroll);
+
   const grab = useRef<HTMLDivElement>(null);
   const [leaving, setLeaving] = useState(false);
   const dismissed = useRef(false);
@@ -253,7 +258,7 @@ export function FortunePaper({
   useEffect(() => {
     if (reducedMotion) {
       // It arrives already open, so it is open.
-      onOpen();
+      onUnroll(1);
       animate(opacity, 1, { duration: 0.2, ease: 'easeOut' });
       return;
     }
@@ -312,7 +317,6 @@ export function FortunePaper({
         const spring = { type: 'spring' as const, ...UNROLL_SPRING };
         if (pulled >= OPEN_THRESHOLD) {
           opened.current = true;
-          onOpen();
           playPaperIn();
           animate(unroll, 1, spring);
           animate(rotate, REST_ROTATION, spring);

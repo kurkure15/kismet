@@ -54,9 +54,10 @@ const TILT_OPEN_DEG = 7;
 /** The texture the fortune is printed on. Same 5:1 as the paper. */
 const TEXTURE_W = 2048;
 const TEXTURE_H = 410;
-/** The stock and the ink. Off-white, not white: this is a slip, not a screen. */
-const PAPER_COLOUR = '#f7f2e6';
-const INK_COLOUR = '#2a2722';
+/** The stock and the ink. White — the tooth below is what keeps it from
+    reading as a screen. */
+const PAPER_COLOUR = '#ffffff';
+const INK_COLOUR = '#26231f';
 /** Type size on the texture: ~25px once the sheet is 640px wide on screen. */
 const TYPE_PX = 80;
 const LINE_HEIGHT = 1.5;
@@ -148,8 +149,8 @@ function seeded(seed: number) {
 }
 
 /**
- * Lays down the stock: a warm off-white with the mottling and the short
- * fibres of a cheap laid paper, which is what fortune slips are printed on.
+ * Lays down the stock: white, with the faint mottling and the short fibres
+ * of a cheap laid paper, which is what fortune slips are printed on.
  * All at very low contrast — it has to read as texture under a lamp, never as
  * dirt — and seeded from the text so the sheet is stable.
  */
@@ -165,7 +166,7 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
     const r = (0.18 + rand() * 0.3) * w;
     const warm = rand() > 0.5;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, warm ? 'rgba(190,160,110,0.045)' : 'rgba(120,130,150,0.035)');
+    g.addColorStop(0, warm ? 'rgba(150,140,120,0.03)' : 'rgba(110,115,125,0.025)');
     g.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, w, h);
@@ -180,7 +181,7 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
     const angle = (rand() - 0.5) * 0.9 + (rand() > 0.85 ? Math.PI / 2 : 0);
     const dark = rand() > 0.42;
     ctx.strokeStyle = dark
-      ? `rgba(90,70,40,${0.025 + rand() * 0.04})`
+      ? `rgba(70,65,55,${0.02 + rand() * 0.035})`
       : `rgba(255,255,255,${0.05 + rand() * 0.06})`;
     ctx.lineWidth = 0.8 + rand() * 1.4;
     ctx.beginPath();
@@ -191,7 +192,7 @@ function stock(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number
 
   // Speckle: the odd fleck in the pulp.
   for (let i = 0; i < 260; i++) {
-    ctx.fillStyle = `rgba(80,60,35,${0.05 + rand() * 0.09})`;
+    ctx.fillStyle = `rgba(70,65,55,${0.04 + rand() * 0.08})`;
     ctx.beginPath();
     ctx.arc(rand() * w, rand() * h, 0.8 + rand() * 1.6, 0, Math.PI * 2);
     ctx.fill();
@@ -383,7 +384,7 @@ export function PaperRoll({
         <meshStandardMaterial
           ref={back}
           attach="material-1"
-          color="#ece6d7"
+          color="#f6f6f3"
           roughness={0.96}
           metalness={0}
           transparent

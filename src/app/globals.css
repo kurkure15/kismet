@@ -83,19 +83,15 @@ body {
 
 /*
  * The cookie's own canvas, in a wrapper of its own so it can be softened
- * without touching anything drawn over it. Once the fortune has been pulled
- * fully open the toy goes out of focus behind it, the way a room does behind
- * the thing you are reading; it comes back sharp the moment the paper is
- * thrown away.
+ * without touching anything drawn over it. As the fortune is pulled open the
+ * toy goes out of focus behind it, in step with the pull, the way a room does
+ * behind the thing you are reading; it comes back sharp the moment the paper
+ * is thrown away. The filter itself is written by Scene, per frame.
  */
 .stage__cookie {
   position: absolute;
   inset: 0;
-  transition: filter 450ms ease;
-}
-
-.stage__cookie.is-soft {
-  filter: blur(7px) brightness(0.98);
+  transition: filter 220ms ease-out;
 }
 
 /* The paper's canvas: a second, transparent scene laid over the first, with
@@ -187,7 +183,7 @@ body {
 /* Both of these belong to the idle plate. Once the cookie breaks the sheet
    clears itself and the toy has the page to itself. */
 .f--credit {
-  bottom: 13%;
+  bottom: var(--edge);
   left: var(--edge);
   font-family: var(--sans);
   font-weight: 700;
