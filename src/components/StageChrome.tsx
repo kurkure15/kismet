@@ -74,12 +74,6 @@ export function StageChrome({
 
       <div className={`plate${quiet ? ' is-quiet' : ''}`}>
         {/* --- plate 1 · idle --- */}
-        <p className={f('label', idle || after)}>
-          Fortune
-          <br />
-          Telling
-        </p>
-
         <p className={f('fineprint', idle)}>
           One cookie, one fortune.
           <br />
@@ -96,8 +90,11 @@ export function StageChrome({
           YADAV
         </p>
 
+        {/* The name of the thing, set on its side down the right margin —
+            the only place it is said. It used to sit in the top-left corner
+            as well, which was saying it twice. */}
         <p className={f('statement', idle)}>
-          CRACK<span className="f__statement-tail"> AND FIND OUT</span>
+          FORTUNE<span className="f__statement-tail"> TELLING</span>
         </p>
 
         <p className={f('wordmark', idle)}>KISMET</p>

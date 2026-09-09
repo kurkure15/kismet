@@ -151,15 +151,6 @@ body {
 
 /* --- plate 1 · idle ------------------------------------------------------ */
 
-.f--label {
-  top: var(--edge);
-  left: var(--edge);
-  font-family: var(--serif);
-  font-size: clamp(13px, 1.15vw, 17px);
-  line-height: 1.12;
-  color: var(--ink);
-}
-
 .f--fineprint {
   top: 41%;
   left: var(--edge);
@@ -230,7 +221,8 @@ body {
 
 /* --- plate 2 · cracked --------------------------------------------------- */
 
-/* The same corner slot the label holds on the idle plate — the two swap. */
+/* The corner slot is empty until the cookie breaks — this is the only thing
+   that ever prints there. */
 .f--bar {
   top: var(--edge);
   left: var(--edge);
