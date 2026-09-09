@@ -9,7 +9,6 @@
   --ink: #26231d;
   --soft: #8b8574;
   --red: #c2452f;
-  --chip-green: #3fa55b;
   --slip: #fffefa;
   --slip-text: #33302b;
 
@@ -150,17 +149,6 @@ body {
 
 /* --- plate 1 · idle ------------------------------------------------------ */
 
-.f--fineprint {
-  top: 41%;
-  left: var(--edge);
-  /* The line breaks are written into the copy, so nothing wraps on its own. */
-  white-space: nowrap;
-  font-family: var(--serif);
-  font-size: clamp(10.5px, 0.82vw, 12.5px);
-  line-height: 1.8;
-  color: var(--soft);
-}
-
 .f--credit {
   bottom: 13%;
   left: var(--edge);
@@ -174,7 +162,8 @@ body {
 
 /* The statement, set on its side down the right margin. */
 .f--statement {
-  top: 21%;
+  top: 50%;
+  transform: translateY(-50%);
   right: var(--edge);
   writing-mode: vertical-rl;
   font-family: var(--sans);
@@ -184,42 +173,7 @@ body {
   color: var(--ink);
 }
 
-.f--wordmark {
-  left: 0;
-  right: 0;
-  bottom: clamp(22px, 6.5%, 58px);
-  text-align: center;
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: clamp(26px, 3.2vw, 42px);
-  letter-spacing: 0.14em;
-  line-height: 1;
-  color: var(--ink);
-}
-
-.f--hint {
-  left: 0;
-  right: 0;
-  top: 77%;
-  text-align: center;
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: clamp(9.5px, 0.78vw, 11px);
-  letter-spacing: 0.18em;
-  color: var(--soft);
-}
-
 /* --- plate 2 · cracked --------------------------------------------------- */
-
-/* The corner slot is empty until the cookie breaks — this is the only thing
-   that ever prints there. */
-.f--bar {
-  top: var(--edge);
-  left: var(--edge);
-  width: 110px;
-  height: 18px;
-  background: var(--chip-green);
-}
 
 /*
  * The chapter mark waits a beat before it prints: the break should read as the
@@ -259,117 +213,23 @@ body {
   color: var(--soft);
 }
 
-/* --- plate 3 · reading --------------------------------------------------- */
-
-.f--vertbox {
-  top: 22%;
-  left: var(--edge);
-  height: 42%;
-  width: clamp(38px, 3.6vw, 52px);
-  display: flex;
-  justify-content: center;
-  padding-top: 14px;
-  border: 1px solid var(--ink);
-}
-
-.f--vertbox span {
-  writing-mode: vertical-rl;
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: clamp(10px, 0.8vw, 12px);
-  letter-spacing: 0.42em;
-  color: var(--ink);
-}
-
-.f--meta {
-  top: 37%;
-  left: calc(var(--edge) + clamp(56px, 9vw, 130px));
-  width: clamp(124px, 12vw, 172px);
-}
-
-.f__meta-head {
-  display: block;
-  font-family: var(--sans);
-  font-weight: 700;
-  font-size: clamp(11px, 0.9vw, 13px);
-  letter-spacing: 0.14em;
-  line-height: 1.45;
-  color: var(--ink);
-}
-
-.f__meta-body {
-  display: block;
-  margin-top: 0.9em;
-  font-family: var(--serif);
-  font-size: clamp(10.5px, 0.82vw, 12.5px);
-  line-height: 1.75;
-  color: var(--soft);
-}
-
-/* --- plate 4 · eaten ----------------------------------------------------- */
-
-.f--count {
-  left: 0;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  text-align: center;
-  color: var(--ink);
-}
-
-.f__no {
-  display: block;
-  font-family: var(--serif);
-  font-size: clamp(12px, 1vw, 15px);
-}
-
-.f__tally {
-  display: block;
-  font-family: var(--sans);
-  font-weight: 800;
-  font-size: clamp(84px, 12vw, 160px);
-  line-height: 0.9;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
-.f__accepted {
-  display: block;
-  margin-top: 1em;
-  font-family: var(--sans);
-  font-weight: 600;
-  font-size: clamp(10px, 0.82vw, 12px);
-  letter-spacing: 0.35em;
-  color: var(--soft);
-}
-
 /* --- narrow plates ------------------------------------------------------- */
 
 /*
- * The reading plate is the widest composition on the sheet: boxed wordmark and
- * meta down the left margin, slip off centre, chapter mark down the right.
- * Measured, the three stop clearing each other a little under 900px — the meta
- * reaches the slip's left edge and the chapter reaches its right. So below
- * that the side furniture comes off, the chapter moves up into the corner, and
- * the slip re-centres (FortunePaper reads the same breakpoint).
+ * The chapter mark and the slip share the right of the sheet. The slip widens
+ * with the viewport and the chapter mark does not, so below 900px they start
+ * reaching for the same column — the chapter moves up into the corner instead,
+ * where the slip never goes. FortunePaper reads the same breakpoint to decide
+ * whether the slip sits off centre or dead centre.
  */
 @media (max-width: 899px) {
-  .f--vertbox,
-  .f--meta {
-    display: none;
-  }
-
   .f--chapter {
     top: 13%;
   }
 }
 
-/*
- * A phone is not a poster. The fine print and the credit come off the sheet
- * too, and the statement loses its tail.
- */
+/* A phone is not a poster: the credit comes off, the statement loses its tail. */
 @media (max-width: 640px) {
-  .f--fineprint,
   .f--credit {
     display: none;
   }
@@ -379,22 +239,7 @@ body {
   }
 
   .f--statement {
-    top: 27%;
     font-size: 10px;
-  }
-
-  .f--wordmark {
-    bottom: 9%;
-    font-size: 22px;
-  }
-
-  .f--bar {
-    width: 22vw;
-    height: 14px;
-  }
-
-  .f--hint {
-    top: 74%;
   }
 }
 

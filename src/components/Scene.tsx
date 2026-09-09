@@ -855,7 +855,7 @@ export default function Scene() {
         {debug && <OrbitControls makeDefault />}
       </Canvas>
 
-      <StageChrome plate={plate} eaten={generation} />
+      <StageChrome plate={plate} />
 
       {kismet.state === 'reading' && (
         <FortunePaper
