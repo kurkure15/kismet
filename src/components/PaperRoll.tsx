@@ -70,6 +70,14 @@ const WIDTH_MAX_PX = 640;
 const TILT_ROLLED_DEG = 24;
 const TILT_OPEN_DEG = 7;
 
+/**
+ * How the paper catches the light. Roughness is what spreads the lamp's
+ * highlight across the sheet; the clearcoat is a thin gloss over it that
+ * gives a second, tighter glint. Low enough to shine, high enough that
+ * the sheet still reads as paper rather than plastic.
+ */
+const SHEEN = { roughness: 0.55, clearcoat: 0.22, clearcoatRoughness: 0.3 };
+
 /** The texture the fortune is printed on. Same 5:1 as the paper. */
 const TEXTURE_W = 2048;
 const TEXTURE_H = 410;
@@ -317,8 +325,8 @@ export function PaperRoll({
   const group = useRef<THREE.Group>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const geometry = useRef<THREE.PlaneGeometry>(null);
-  const front = useRef<THREE.MeshStandardMaterial>(null);
-  const back = useRef<THREE.MeshStandardMaterial>(null);
+  const front = useRef<THREE.MeshPhysicalMaterial>(null);
+  const back = useRef<THREE.MeshPhysicalMaterial>(null);
 
   // Seeded from the text, like the stock, so the sheet is the same each time.
   const creases = useMemo(() => {
@@ -435,23 +443,31 @@ export function PaperRoll({
     <group ref={group} visible={false}>
       <mesh ref={mesh}>
         <planeGeometry ref={geometry} args={[1, ASPECT, SEGMENTS, ROWS]} />
-        <meshStandardMaterial
+        {/* Glossy stock. The lamp puts a soft highlight on the sheet that
+            breaks up over the creases and streaks down the coil as it turns;
+            the clearcoat adds a second, tighter glint on top, the way a
+            coated slip catches the light. */}
+        <meshPhysicalMaterial
           ref={front}
           attach="material-0"
           map={map}
           bumpMap={map}
           bumpScale={0.35}
-          roughness={0.94}
+          roughness={SHEEN.roughness}
           metalness={0}
+          clearcoat={SHEEN.clearcoat}
+          clearcoatRoughness={SHEEN.clearcoatRoughness}
           transparent
           side={THREE.FrontSide}
         />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           ref={back}
           attach="material-1"
           color="#ffffff"
-          roughness={0.96}
+          roughness={SHEEN.roughness}
           metalness={0}
+          clearcoat={SHEEN.clearcoat}
+          clearcoatRoughness={SHEEN.clearcoatRoughness}
           transparent
           side={THREE.BackSide}
         />
